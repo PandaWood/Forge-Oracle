@@ -14,6 +14,8 @@ Open `index.html` (or the hosted page, if you publish one).
 2. Pick one of the slots found in your save, or type an item's internal name (for example `Hammer`) and its current level.
 3. Read the next ten upgrade steps for that item: row 1 is current level to +1, row 2 is +1 to +2, and so on, each with its predicted result and roll. The rows after the first assume every earlier step succeeded, since a failure breaks the item.
 
+The page also has an "Item names and IDs" list with search. Tap an item to fill in its internal name.
+
 The character name is read from the save automatically. It only matters for an item and level that has no stored seed yet, where the starting seed comes from the name.
 
 On Windows, character files live in:
@@ -77,7 +79,7 @@ Near the end of the payload, after the build-menu blob, come two lists. The seco
 
 - The success cutoff is only bracketed: a roll of 0.5535 succeeded and 0.6602 failed. The page marks anything in that gap as unclear.
 - Only the wood idol has been tested. Other idols may use different chances.
-- The built-in item list is a best guess at internal names. A wrong name gives a plausible but wrong prediction. Check names against the [Valheim item ID list](https://www.valheim.tools/item-ids).
+- The built-in item list (309 weapons, armour, shields and tools) was copied from [valheim.tools](https://www.valheim.tools/item-ids) in October 2026. It covers names that exist in game version 1.0.20 at that time and may miss newer items. A wrong name gives a plausible but wrong prediction.
 - Name detection looks for the name stored next to your character ID. A character with no crafted items, or with many items crafted by someone else, may need the name entered by hand.
 - A game patch can change the math or the save format.
 

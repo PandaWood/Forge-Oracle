@@ -50,6 +50,16 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 .line{display:grid;grid-template-columns:3ch 8ch 1fr auto;gap:12px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line);font:15px var(--mono)}
 .line b{font-weight:600}.line small{color:var(--muted);font-size:13px}
 .line.S b{color:var(--good)}.line.F b{color:var(--bad)}.line.M b{color:var(--maybe)}
+.ref{border-top:1px solid var(--line);padding-top:14px}
+.reftools{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.reftools input{flex:1 1 200px}
+.tab{font:14px var(--body);border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:4px;padding:6px 12px;cursor:pointer}
+.tab[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.reflist{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:0 20px;max-height:420px;overflow:auto;border-top:1px solid var(--line)}
+.ref-row{display:flex;justify-content:space-between;gap:10px;align-items:baseline;text-align:left;width:100%;background:none;border:0;border-bottom:1px solid var(--line);color:var(--fg);font:15px var(--body);padding:7px 2px;cursor:pointer;min-width:0}
+.ref-row:hover,.ref-row:focus-visible{color:var(--accent)}
+.ref-row span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ref-row .mono{color:var(--muted);flex:none}
 .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted);margin-top:10px}
 details{border-top:1px solid var(--line);padding-top:14px}
 summary{cursor:pointer;font:500 15px var(--disp);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
@@ -95,7 +105,7 @@ details p{margin:10px 0;font-size:16px}
         <input id="cname" autocomplete="off" spellcheck="false" placeholder="read from your save">
       </label>
     </div>
-    <p class="note">Enter the level your item is now. Names are case sensitive. Use the internal name, not the display name. Look names up in the <a href="https://www.valheim.tools/item-ids" target="_blank" rel="noopener noreferrer">Valheim item ID list</a>.</p>
+    <p class="note">Enter the level your item is now. Names are case sensitive. Use the internal name, not the display name. Not sure of the name? <a href="#ref" id="refLink">Browse item names and IDs</a>.</p>
   </section>
 
   <section id="out" hidden>
@@ -110,6 +120,16 @@ details p{margin:10px 0;font-size:16px}
     </div>
   </section>
 
+    <details class="ref" id="ref">
+    <summary>Item names and IDs</summary>
+    <p class="note">Tap an item to fill in the name above. IDs are case sensitive. Source: <a href="https://www.valheim.tools/item-ids" target="_blank" rel="noopener noreferrer">valheim.tools</a>.</p>
+    <div class="reftools">
+      <input id="refq" type="search" placeholder="Search by name or ID" autocomplete="off" spellcheck="false" aria-label="Search items">
+      <div class="reftools" id="reftabs" style="margin:0"></div>
+    </div>
+    <div class="reflist" id="reflist"></div>
+  </details>
+
   <details>
     <summary>How this works</summary>
     <p>Each item and target level has its own saved seed in your character file. An attempt turns that seed into one roll between 0 and 1, then stores a new seed. Reloading cannot change the outcome, so the next results can be read ahead of time.</p>
@@ -121,7 +141,6 @@ details p{margin:10px 0;font-size:16px}
 <script>
 (function(){
   var M=0xFFFFFFFF, A=1812433253;
-  var ITEMS=["Hammer","Hoe","Cultivator","Club","KnifeFlint","KnifeCopper","KnifeBlackMetal","KnifeSilver","KnifeChitin","AxeFlint","AxeBronze","AxeIron","AxeBlackMetal","AxeStone","PickaxeAntler","PickaxeBronze","PickaxeIron","PickaxeBlackMetal","SledgeStagbreaker","SledgeIron","SledgeDemolisher","MaceBronze","MaceIron","MaceSilver","MaceNeedle","SwordBronze","SwordIron","SwordSilver","SwordBlackmetal","SwordCheat","Atgeir","AtgeirBronze","AtgeirIron","AtgeirBlackmetal","SpearFlint","SpearBronze","SpearElderbark","SpearWolfFang","SpearChitin","SpearCarapace","BowFineWood","BowHuntsman","BowDraugrFang","BowSpineSnap","BowAshlands","CrossbowArbalest","ShieldWood","ShieldBronzeBuckler","ShieldBanded","ShieldIronSquare","ShieldIronTower","ShieldSilver","ShieldBlackmetal","ShieldBlackmetalTower","Torch","FishingRod"];
   function hash(s){var n=5381,n2=5381;for(var i=0;i<s.length;i+=2){n=(Math.imul(n,33)^s.charCodeAt(i))>>>0;if(i===s.length-1)break;n2=(Math.imul(n2,33)^s.charCodeAt(i+1))>>>0;}return (n+Math.imul(n2,1566083941))>>>0;}
   function rollNext(seed){
     var s0=seed>>>0,s1=(Math.imul(s0,A)+1)>>>0,s2=(Math.imul(s1,A)+1)>>>0,s3=(Math.imul(s2,A)+1)>>>0;
@@ -174,8 +193,35 @@ details p{margin:10px 0;font-size:16px}
   }
   var $=function(id){return document.getElementById(id)};
   var saved=null;
-  var dl=$("items");ITEMS.forEach(function(n){var o=document.createElement("option");o.value=n;dl.appendChild(o);});
-  var known={};ITEMS.forEach(function(n){for(var l=1;l<=30;l++)known[(hash(n)+l)>>>0]={item:n,level:l};});
+  var ITEMDATA={"Weapons":[["Abyssal Harpoon","SpearChitin"],["Abyssal Razor","KnifeChitin"],["Ancient Bark Spear","SpearElderbark"],["Antler Pickaxe","PickaxeAntler"],["Arbalest","CrossbowArbalest"],["Ash Fang","BowAshlands"],["Basalt Bomb","BombLava"],["Battleaxe","Battleaxe"],["Berserkir Axes","AxeBerzerkr"],["Bile Bomb","BombBile"],["Black Metal Atgeir","AtgeirBlackmetal"],["Black Metal Axe","AxeBlackMetal"],["Black Metal Battleaxe","BattleaxeBlackmetal"],["Black Metal Knife","KnifeBlackMetal"],["Black Metal Pickaxe","PickaxeBlackMetal"],["Black Metal Sword","SwordBlackmetal"],["Bleeding Berserkir Axes","AxeBerzerkrBlood"],["Blob Bomb: Elite Poison","BombBlob_PoisonElite"],["Blob Bomb: Frost","BombBlob_Frost"],["Blob Bomb: Lava","BombBlob_Lava"],["Blob Bomb: Poison","BombBlob_Poison"],["Blob Bomb: Pulp","BombBlob_Morkhalla"],["Blob Bomb: Tar","BombBlob_Tar"],["Blood Fang","BowAshlandsBlood"],["Bloodgeon","MaceEldnerBlood"],["Bronze Atgeir","AtgeirBronze"],["Bronze Axe","AxeBronze"],["Bronze Mace","MaceBronze"],["Bronze Pickaxe","PickaxeBronze"],["Bronze Spear","SpearBronze"],["Bronze Sword","SwordBronze"],["Brutal Slayer","THSwordSlayerBlood"],["Butcher Knife","KnifeButcher"],["Carapace Spear","SpearCarapace"],["Club","Club"],["Copper Knife","KnifeCopper"],["Crude Bow","Bow"],["Crystal Battleaxe","BattleaxeCrystal"],["Dead Raiser","StaffSkeleton"],["Demolisher","SledgeDemolisher"],["Draugr Fang","BowDraugrFang"],["Dundr","StaffLightning"],["Dvergr Tankard","Tankard_dvergr"],["Dyrnwyn","SwordDyrnwyn"],["Dyrnwyn","SwordIronFire"],["Early Axes","AxeEarly"],["Echo Spike","StaffOrbofAhri"],["Ember Charge","BombDynamite"],["Fang Spear","SpearWolfFang"],["Finewood Bow","BowFineWood"],["Fishing Rod","FishingRod"],["Flametal Mace","MaceEldner"],["Flesh Rippers","FistFenrirClaw"],["Flint Axe","AxeFlint"],["Flint Knife","KnifeFlint"],["Flint Spear","SpearFlint"],["Frostfire Atgeir","AtgeirGold_FrostFire"],["Frostfire Axe","AxeGold_FrostFire"],["Frostfire Bow","BowGold_FrostFire"],["Frostfire Crossbow","CrossbowGold_FrostFire"],["Frostfire Dagger","KnifeGold_FrostFire"],["Frostfire Greataxe","BattleaxeGold_FrostFire"],["Frostfire Greatsword","THSwordGold_FrostFire"],["Frostfire Knucklechains","FistGold_FrostFire"],["Frostfire Mace","MaceGold_FrostFire"],["Frostfire Sledge","SledgeGold_FrostFire"],["Frostfire Spear","SpearGold_FrostFire"],["Frostfire Sword","SwordGold_FrostFire"],["Frostner","MaceSilver"],["Grappling Hook","GrapplingHook"],["Himminafl","AtgeirHimminAfl"],["Horn of Celebration","TankardAnniversary"],["Huntsman Bow","BowHuntsman"],["Iron Atgeir","AtgeirIron"],["Iron Axe","AxeIron"],["Iron Mace","MaceIron"],["Iron Pickaxe","PickaxeIron"],["Iron Sledge","SledgeIron"],["Iron Sword","SwordIron"],["Jotun Bane","AxeJotunBane"],["Klossen","MaceEldnerNature"],["Krom","THSwordKrom"],["Lightning Strike","StaffThunderBlood"],["Mead Horn of Oden","TankardOdin"],["Mistwalker","SwordMistwalker"],["Nidhögg","SwordNiedhogg"],["Nidhögg the Bleeding","SwordNiedhoggBlood"],["Nidhögg the Primal","SwordNiedhoggNature"],["Nidhögg the Thundering","SwordNiedhoggLightning"],["Nord Atgeir","AtgeirGold"],["Nord Axe","AxeGold"],["Nord Bow","BowGold"],["Nord Crossbow","CrossbowGold"],["Nord Dagger","KnifeGold"],["Nord Greataxe","BattleaxeGold"],["Nord Greatsword","THSwordGold"],["Nord Knucklechains","FistGold"],["Nord Mace","MaceGold"],["Nord Sledge","SledgeGold"],["Nord Spear","SpearGold"],["Nord Sword","SwordGold"],["Northern Vengeance","StaffFrostOrbs"],["Ooze Bomb","BombOoze"],["Paws of the Bear","FistBjornClaw"],["Porcupine","MaceNeedle"],["Primal Berserkir Axes","AxeBerzerkrNature"],["Primal Slayer","THSwordSlayerNature"],["Ripper","CrossbowRipper"],["Root Fang","BowAshlandsRoot"],["Root Ripper","CrossbowRipperNature"],["Scourging Slayer","THSwordSlayerLightning"],["Scythe","Scythe"],["Silver Knife","KnifeSilver"],["Silver Sword","SwordSilver"],["Skoll and Hati","KnifeSkollAndHati"],["Skull Splittur","BattleaxeSkullSplittur"],["Slayer","THSwordSlayer"],["Smoke Bomb","BombSmoke"],["Snow Shovel","Shovel"],["Snowball","Snowball"],["Spinesnap","BowSpineSnap"],["Spirit Caller","StaffSpiritCaller"],["Splitnir","SpearSplitner"],["Splitnir the Bleeding","SpearSplitner_Blood"],["Splitnir the Primal","SpearSplitner_Nature"],["Splitnir the Storming","SpearSplitner_Lightning"],["Staff of Embers","StaffFireball"],["Staff of Fracturing","StaffClusterbomb"],["Staff of Frost","StaffIceShards"],["Staff of Protection","StaffShield"],["Staff of the Wild","StaffGreenRoots"],["Stagbreaker","SledgeStagbreaker"],["Stone Axe","AxeStone"],["Stone Pickaxe","PickaxeStone"],["Storm Fang","BowAshlandsStorm"],["Storm Ripper","CrossbowRipperLightning"],["Storm Star","MaceEldnerLightning"],["Tankard","Tankard"],["Thunderblood Atgeir","AtgeirGold_BloodLightning"],["Thunderblood Axe","AxeGold_BloodLightning"],["Thunderblood Bow","BowGold_BloodLightning"],["Thunderblood Crossbow","CrossbowGold_BloodLightning"],["Thunderblood Dagger","KnifeGold_BloodLightning"],["Thunderblood Greataxe","BattleaxeGold_BloodLightning"],["Thunderblood Greatsword","THSwordGold_BloodLightning"],["Thunderblood Knucklechains","FistGold_BloodLightning"],["Thunderblood Mace","MaceGold_BloodLightning"],["Thunderblood Sledge","SledgeGold_BloodLightning"],["Thunderblood Spear","SpearGold_BloodLightning"],["Thunderblood Sword","SwordGold_BloodLightning"],["Thundering Berserkir Axes","AxeBerzerkrLightning"],["Trollstav","StaffRedTroll"],["Vilebone Maulclaws","FistBjornUndeadClaw"],["Voidcaller","KnifeVoid"],["Wooden Atgeir","AtgeirWood"],["Wooden Axe","AxeWood"],["Wooden Battleaxe","BattleaxeWood"],["Wooden Greatsword","THSwordWood"],["Wooden Knife","KnifeWood"],["Wooden Mace","MaceWood"],["Wooden Sledge","SledgeWood"],["Wooden Spear","SpearWood"],["Wooden Sword","SwordWood"],["Wound Ripper","CrossbowRipperBlood"]],"Armour":[["Ashen Cape","CapeAsh"],["Asksvin Cloak","CapeAsksvin"],["Blue Dress with Beads","ArmorDress6"],["Blue Dress with Shawl","ArmorDress5"],["Blue Tied Headscarf","HelmetHat1"],["Blue Tunic with Beads","ArmorTunic3"],["Blue Tunic with Cape","ArmorTunic2"],["Breastplate of Ask","ArmorAshlandsMediumChest"],["Breastplate of the Protector","ArmorDeepNorthHeavyChest"],["Bronze Helmet","HelmetBronze"],["Bronze Plate Leggings","ArmorBronzeLegs"],["Bronze Plate Tunic","ArmorBronzeChest"],["Brown Dress with Beads","ArmorDress3"],["Brown Dress with Shawl","ArmorDress2"],["Brown Fur Cap","HelmetHat3"],["Cape of Oden","CapeOdin"],["Cape of the Caller","CapeDeepNorthMage"],["Carapace Breastplate","ArmorCarapaceChest"],["Carapace Greaves","ArmorCarapaceLegs"],["Carapace Helmet","HelmetCarapace"],["Celebratory Cap","HelmetCelebration"],["Chestpiece of the Vanguard","ArmorDeepNorthMediumChest"],["Crown of Roots","HelmetRootCrown"],["Crown of Valheim","HelmetCrownofValheim"],["Deer Hide Cape","CapeDeerHide"],["Drake Helmet","HelmetDrake"],["Dverger Circlet","HelmetDverger"],["Eitr-weave Hood","HelmetMage"],["Eitr-weave Robe","ArmorMageChest"],["Eitr-weave Trousers","ArmorMageLegs"],["Extravagant Green Cap","HelmetHat4"],["Extravagant Orange Cap","HelmetHat9"],["Feather Cape","CapeFeather"],["Fenris Coat","ArmorFenringChest"],["Fenris Hood","HelmetFenring"],["Fenris Leggings","ArmorFenringLegs"],["Fishing Hat","HelmetFishingHat"],["Flametal Breastplate","ArmorFlametalChest"],["Flametal Greaves","ArmorFlametalLegs"],["Flametal Helmet","HelmetFlametal"],["Green Twisted Headscarf","HelmetHat2"],["Grey Fur Cap","HelmetHat8"],["Harvest Dress","ArmorHarvester2"],["Harvest Tunic","ArmorHarvester1"],["Headband","HelmetSweatBand"],["Headdress of the Bear","HelmetBerserkerHood"],["Headdress of the Caller","HelmetDNMage"],["Helmet of the Protector","HelmetDNHeavy"],["Hood of Ask","HelmetAshlandsMediumHood"],["Hood of Embla","HelmetMage_Ashlands"],["Hood of Oden","HelmetOdin"],["Hood of the Vanguard","HelmetDNMediumHood"],["Iron Greaves","ArmorIronLegs"],["Iron Helmet","HelmetIron"],["Iron Scale Mail","ArmorIronChest"],["Leather Helmet","HelmetLeather"],["Leather Trousers","SP_ArmorLeatherLegs"],["Leather Trousers","ArmorLeatherLegs"],["Leather Tunic","ArmorLeatherChest"],["Linen Cape","CapeLinen"],["Loincloth of the Bear","ArmorBerserkerLegs"],["Lox Cape","CapeLox"],["Lox Fur Hood","HelmetLox"],["Lox Fur Jacket","ArmorLoxChest"],["Lox Fur Trousers","ArmorLoxLegs"],["Midsummer Crown","HelmetMidsummerCrown"],["Moose Hide Cape","CapeDeepNorth"],["Padded Cuirass","ArmorPaddedCuirass"],["Padded Greaves","ArmorPaddedGreaves"],["Padded Helmet","HelmetPadded"],["Patterns of the Bear","ArmorBerserkerChest"],["Plain Blue Dress","ArmorDress4"],["Plain Blue Tunic","ArmorTunic1"],["Plain Brown Dress","SP_ArmorDress1"],["Plain Brown Dress","ArmorDress1"],["Plain Red Tunic","ArmorTunic4"],["Plain Yellow Dress","ArmorDress7"],["Plain Yellow Tunic","ArmorTunic7"],["Pointy Hat","HelmetPointyHat"],["Rag Trousers","ArmorRagsLegs"],["Rag Tunic","ArmorRagsChest"],["Red Tunic with Beads","ArmorTunic6"],["Red Tunic with Cape","ArmorTunic5"],["Red Twisted Headscarf","HelmetHat7"],["Robes of Embla","ArmorMageChest_Ashlands"],["Robes of the Caller","ArmorDeepNorthMageChest"],["Root Harnesk","ArmorRootChest"],["Root Leggings","ArmorRootLegs"],["Root Mask","HelmetRoot"],["Simple Purple Cap","HelmetHat10"],["Simple Red Cap","HelmetHat5"],["Simple Undyed Dress","ArmorDress10"],["Simple Undyed Tunic","ArmorTunic10"],["Straw Hat","HelmetStrawHat"],["Troll Hide Cape","CapeTrollHide"],["Troll Leather Hood","HelmetTrollLeather"],["Troll Leather Trousers","ArmorTrollLeatherLegs"],["Troll Leather Tunic","ArmorTrollLeatherChest"],["Trousers of Ask","ArmorAshlandsMediumlegs"],["Trousers of Embla","ArmorMageLegs_Ashlands"],["Trousers of the Caller","ArmorDeepNorthMagelegs"],["Trousers of the Protector","ArmorDeepNorthHeavylegs"],["Trousers of the Vanguard","ArmorDeepNorthMediumlegs"],["Vilebone Cage","ArmorBerserkerUndeadChest"],["Vilebone Drapes","ArmorBerserkerUndeadLegs"],["Vilebone Visage","HelmetBerserkerUndead"],["Wolf Fur Cape","CapeWolf"],["Wolf Hide Chestpiece","ArmorWolfChest"],["Wolf Hide Trousers","ArmorWolfLegs"],["Yellow Dress with Beads","ArmorDress9"],["Yellow Dress with Shawl","ArmorDress8"],["Yellow Tied Headscarf","HelmetHat6"],["Yellow Tunic with Beads","ArmorTunic9"],["Yellow Tunic with Cape","ArmorTunic8"],["Yule Hat","HelmetYule"]],"Shields":[["Banded Shield","ShieldBanded"],["Black Metal Shield","ShieldBlackmetal"],["Black Metal Tower Shield","ShieldBlackmetalTower"],["Bone Tower Shield","ShieldBoneTower"],["Bronze Buckler","ShieldBronzeBuckler"],["Carapace Buckler","ShieldCarapaceBuckler"],["Carapace Shield","ShieldCarapace"],["Flametal Shield","ShieldFlametal"],["Flametal Tower Shield","ShieldFlametalTower"],["Iron Buckler","ShieldIronBuckler"],["Iron Shield","ShieldIronSquare"],["Iron Tower Shield","ShieldIronTower"],["Nord Buckler","ShieldGoldBuckler"],["Nord Greatshield","ShieldGoldTower"],["Nord Shield","ShieldGold"],["Serpent Scale Shield","ShieldSerpentscale"],["Shield of Roots","ShieldRoots"],["Silver Shield","ShieldSilver"],["Wood Shield","ShieldWood"],["Wood Tower Shield","ShieldWoodTower"]],"Tools":[["Cultivator","Cultivator"],["Dvergr Lantern","Lantern"],["Hammer","Hammer"],["Hoe","Hoe"],["Hooded Lantern","Lantern_hooded"],["Salvaged Lantern","Lantern_DN"],["Serving Tray","Feaster"],["Sparkler","Sparkler"],["Torch","Torch"],["Torch Mist","TorchMist"]]};
+  var NAME={},ALL=[];
+  Object.keys(ITEMDATA).forEach(function(g){ITEMDATA[g].forEach(function(p){NAME[p[1]]=p[0];ALL.push({g:g,n:p[0],i:p[1]});});});
+  var dl=$("items");ALL.forEach(function(x){var o=document.createElement("option");o.value=x.i;o.label=x.n;dl.appendChild(o);});
+  var known={};ALL.forEach(function(x){for(var l=1;l<=30;l++)known[(hash(x.i)+l)>>>0]={item:x.i,level:l};});
+  var refGroup="All";
+  function renderRef(){
+    var q=$("refq").value.trim().toLowerCase(),box=$("reflist");box.innerHTML="";
+    ALL.filter(function(x){return (refGroup==="All"||x.g===refGroup)&&(!q||x.n.toLowerCase().indexOf(q)>=0||x.i.toLowerCase().indexOf(q)>=0);})
+      .sort(function(a,b){return a.n.localeCompare(b.n);})
+      .forEach(function(x){
+        var b=document.createElement("button");b.type="button";b.className="ref-row";
+        var n=document.createElement("span");n.textContent=x.n;
+        var i=document.createElement("span");i.className="mono";i.textContent=x.i;
+        b.appendChild(n);b.appendChild(i);
+        b.onclick=function(){$("item").value=x.i;run();$("item").scrollIntoView({block:"center"});};
+        box.appendChild(b);
+      });
+    if(!box.children.length){var e=document.createElement("p");e.className="note";e.textContent="No matching items.";box.appendChild(e);}
+  }
+  (function(){
+    var tabs=$("reftabs");
+    ["All"].concat(Object.keys(ITEMDATA)).forEach(function(g){
+      var t=document.createElement("button");t.type="button";t.className="tab";t.textContent=g;t.setAttribute("aria-pressed",g==="All"?"true":"false");
+      t.onclick=function(){refGroup=g;Array.prototype.forEach.call(tabs.children,function(c){c.setAttribute("aria-pressed",c===t?"true":"false");});renderRef();};
+      tabs.appendChild(t);
+    });
+    $("refq").addEventListener("input",renderRef);renderRef();
+  })();
 
   function status(msg,warn){var e=$("fileStatus");e.textContent=msg;e.hidden=!msg;e.className="status"+(warn?" warn":"");}
 
@@ -215,7 +261,7 @@ details p{margin:10px 0;font-size:16px}
       var m=known[k>>>0];
       if(!m){unknown++;return;}
       var btn=document.createElement("button");btn.type="button";btn.className="slot";
-      btn.textContent=m.item+" → level "+m.level;
+      btn.textContent=(NAME[m.item]||m.item)+" → level "+m.level;
       btn.onclick=function(){$("item").value=m.item;$("level").value=m.level-1;run();};
       box.appendChild(btn);
     });
@@ -224,6 +270,7 @@ details p{margin:10px 0;font-size:16px}
     sec.hidden=false;
   }
 
+  var rl=$("refLink");if(rl)rl.addEventListener("click",function(e){e.preventDefault();$("ref").open=true;$("ref").scrollIntoView({block:"start"});});
   function classify(r){return r<=0.55?"S":r>=0.661?"F":"M";}
   var LABEL={S:"Success",F:"Fail",M:"Unclear"};
 
