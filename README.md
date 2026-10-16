@@ -26,20 +26,19 @@ The game writes seeds to the file only when it saves, so quit to the main menu a
 
 ## Use it from the command line
 
-`forge_predict.py` needs only Python 3.
+`forge_predict.py` needs only Python 3. It prints the same list as the page.
 
 ```
-python forge_predict.py --name Thor --item Hammer --level 4 --fch Thor.fch --count 12
+python forge_predict.py --item Hammer --level 3 --fch Thor.fch
 ```
 
 | Option | Meaning |
 | --- | --- |
-| `--name` | Your character name, exactly as in the game |
 | `--item` | The item's internal name, not its display name. Look names up in the [Valheim item ID list](https://www.valheim.tools/item-ids) |
-| `--level` | The level the item reaches if the attempt succeeds (current level + 1) |
-| `--fch` | Optional character file. Without it, or if the slot has no stored seed, prediction starts from the initial seed |
-| `--count` | How many upcoming attempts to list (default 12) |
-| `--chance` | Idol success chance used inside the unclear band (default 0.65) |
+| `--level` | The item's current level. Row 1 is current to +1, row 2 is +1 to +2, and so on |
+| `--fch` | Your character file. Stored seeds are used and the character name is read from it |
+| `--name` | Character name. Only needed without `--fch`, or if the name could not be read |
+| `--count` | How many upgrade steps to list (default 10) |
 
 `fch_tail.py` prints the save version, checksum status and the raw seed tables from a `.fch` file. It is a debugging aid.
 
