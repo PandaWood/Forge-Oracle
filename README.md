@@ -11,8 +11,8 @@ Unofficial fan tool. Not affiliated with or endorsed by Iron Gate AB. Single-pla
 Open `index.html` (or the hosted page, if you publish one).
 
 1. Drop your character file onto the page. Everything runs locally in your browser; the file is never uploaded.
-2. Pick one of the slots found in your save, or type an item's internal name (for example `Hammer`) and the level it will reach after the upgrade (a level 3 hammer is level 4).
-3. Read the list of upcoming attempts. Success, fail or unclear is shown for each, with the roll.
+2. Pick one of the slots found in your save, or type an item's internal name (for example `Hammer`) and its current level.
+3. Read the next ten upgrade steps for that item: row 1 is current level to +1, row 2 is +1 to +2, and so on, each with its predicted result and roll. The rows after the first assume every earlier step succeeded, since a failure breaks the item.
 
 The character name is read from the save automatically. It only matters for an item and level that has no stored seed yet, where the starting seed comes from the name.
 
@@ -35,7 +35,7 @@ python forge_predict.py --name Thor --item Hammer --level 4 --fch Thor.fch --cou
 | Option | Meaning |
 | --- | --- |
 | `--name` | Your character name, exactly as in the game |
-| `--item` | The item's internal name, not its display name |
+| `--item` | The item's internal name, not its display name. Look names up in the [Valheim item ID list](https://www.valheim.tools/item-ids) |
 | `--level` | The level the item reaches if the attempt succeeds (current level + 1) |
 | `--fch` | Optional character file. Without it, or if the slot has no stored seed, prediction starts from the initial seed |
 | `--count` | How many upcoming attempts to list (default 12) |
@@ -78,7 +78,7 @@ Near the end of the payload, after the build-menu blob, come two lists. The seco
 
 - The success cutoff is only bracketed: a roll of 0.5535 succeeded and 0.6602 failed. The page marks anything in that gap as unclear.
 - Only the wood idol has been tested. Other idols may use different chances.
-- The built-in item list is a best guess at internal names. A wrong name gives a plausible but wrong prediction.
+- The built-in item list is a best guess at internal names. A wrong name gives a plausible but wrong prediction. Check names against the [Valheim item ID list](https://www.valheim.tools/item-ids).
 - Name detection looks for the name stored next to your character ID. A character with no crafted items, or with many items crafted by someone else, may need the name entered by hand.
 - A game patch can change the math or the save format.
 

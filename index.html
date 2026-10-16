@@ -47,7 +47,7 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 .status.warn{border-color:var(--bad)}
 .summary{font:500 26px/1.2 var(--disp);margin:0 0 4px}
 .paths{display:grid;gap:0;margin-top:12px;border-top:1px solid var(--line)}
-.line{display:grid;grid-template-columns:3ch 1fr auto;gap:12px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line);font:15px var(--mono)}
+.line{display:grid;grid-template-columns:3ch 8ch 1fr auto;gap:12px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line);font:15px var(--mono)}
 .line b{font-weight:600}.line small{color:var(--muted);font-size:13px}
 .line.S b{color:var(--good)}.line.F b{color:var(--bad)}.line.M b{color:var(--maybe)}
 .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted);margin-top:10px}
@@ -99,7 +99,7 @@ details p{margin:10px 0;font-size:16px}
   </section>
 
   <section id="out" hidden>
-    <h2>3 &middot; Next ten attempts</h2>
+    <h2>3 &middot; Next ten upgrades</h2>
     <p class="summary" id="summary"></p>
     <p class="note" id="source"></p>
     <div class="paths" id="paths"></div>
@@ -114,7 +114,7 @@ details p{margin:10px 0;font-size:16px}
     <summary>How this works</summary>
     <p>Each item and target level has its own saved seed in your character file. An attempt turns that seed into one roll between 0 and 1, then stores a new seed. Reloading cannot change the outcome, so the next results can be read ahead of time.</p>
     <p>Seeds are written only when the game saves, so quit to the main menu after any attempt before dropping the file here. Predictions were checked against 14 real attempts on Valheim 1.0.20 with the wood idol. The exact success cutoff is known only to lie between roughly 0.55 and 0.66, which is why that band is marked unclear.</p>
-    <p>The list is in order. Attempt 1 is what happens on your next upgrade of this item, attempt 2 is the one after that, and so on. A success moves the item up a level, which has its own list, so check the new level after each success. A failure breaks the item, and the next copy you upgrade at the same level gets the next attempt on the list.</p>
+    <p>Each row is one upgrade step for a single item. Row 1 takes it from its current level up one, row 2 takes it up another, and so on. Each level has its own saved seed, so each row uses the next roll for that level. The rows after the first assume every earlier step succeeded, because a failure breaks the item. If a step breaks it, the rows after it do not apply to that item.</p>
   </details>
 </main>
 
@@ -230,31 +230,36 @@ details p{margin:10px 0;font-size:16px}
   function run(){
     var item=$("item").value.trim(),cur=parseInt($("level").value,10),out=$("out");
     if(!item||isNaN(cur)||cur<0){out.hidden=true;return;}
-    var lv=cur+1,key=(hash(item)+lv)>>>0,seed,src;
-    if(saved&&saved.found&&Object.prototype.hasOwnProperty.call(saved.slots,key)){seed=saved.slots[key];src="Seed read from your save for level "+cur+" to "+lv+".";}
-    else{
-      var nm=$("cname").value.trim();
-      out.hidden=false;
-      if(!nm){
-        $("summary").textContent="Enter your character name";
-        $("source").textContent="This item has not been upgraded at this level yet, so the first roll comes from your character name.";
-        $("paths").innerHTML="";return;
-      }
-      seed=(hash(nm)+key)>>>0;src="No saved seed for level "+cur+" to "+lv+" yet, so this starts from your character name.";
+    var nm=$("cname").value.trim(),rows=[],from={},needName=false,n,lv,key,seed,r;
+    for(n=1;n<=10;n++){
+      lv=cur+n;key=(hash(item)+lv)>>>0;
+      if(saved&&saved.found&&Object.prototype.hasOwnProperty.call(saved.slots,key)){seed=saved.slots[key];from[lv]="save";}
+      else if(nm){seed=(hash(nm)+key)>>>0;from[lv]="fresh";}
+      else{needName=true;break;}
+      r=rollNext(seed);rows.push({n:n,a:lv-1,b:lv,roll:r.roll,c:classify(r.roll)});
     }
-    $("source").textContent=src;
-    var box=$("paths");box.innerHTML="";var s=seed,rows=[],i,r;
-    for(i=1;i<=10;i++){r=rollNext(s);s=r.next;rows.push({i:i,roll:r.roll,c:classify(r.roll)});}
+    out.hidden=false;
+    var box=$("paths");box.innerHTML="";
+    if(needName){
+      $("summary").textContent="Enter your character name";
+      $("source").textContent="Some of these levels have no stored seed yet, so their first roll comes from your character name.";
+      return;
+    }
+    var fr=Object.keys(from).filter(function(l){return from[l]==="fresh";}).length;
+    $("source").textContent=fr?"Levels not yet attempted start from your character name. The rest come from your save.":"All of these levels were read from your save.";
     rows.forEach(function(x){
       var li=document.createElement("div");li.className="line "+x.c;
-      var a=document.createElement("span");a.textContent=x.i;
+      var a=document.createElement("span");a.textContent=x.n;
+      var lvl=document.createElement("span");lvl.textContent=x.a+" → "+x.b;
       var b=document.createElement("b");b.textContent=LABEL[x.c];
       var m=document.createElement("small");m.textContent="roll "+x.roll.toFixed(4);
-      li.appendChild(a);li.appendChild(b);li.appendChild(m);box.appendChild(li);
+      li.appendChild(a);li.appendChild(lvl);li.appendChild(b);li.appendChild(m);box.appendChild(li);
     });
-    var f=rows[0];
-    $("summary").textContent=f.c==="S"?"The next upgrade should succeed.":f.c==="F"?"The next upgrade should fail and break the item.":"The next upgrade lands in the unclear band.";
-    out.hidden=false;
+    var stop=rows.find(function(x){return x.c!=="S";}),sum;
+    if(!stop)sum="Every one of these ten upgrades succeeds, taking the item from level "+cur+" to "+(cur+10)+".";
+    else if(stop.n===1)sum=stop.c==="F"?"The first upgrade fails and breaks the item.":"The first upgrade lands in the unclear band.";
+    else sum="The item climbs from level "+cur+" to "+stop.a+", then "+(stop.c==="F"?"breaks on the "+stop.a+" to "+stop.b+" upgrade.":"hits the unclear band on the "+stop.a+" to "+stop.b+" upgrade.");
+    $("summary").textContent=sum;
   }
 
   var drop=$("drop"),fi=$("file");
