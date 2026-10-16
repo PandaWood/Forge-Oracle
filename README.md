@@ -52,7 +52,7 @@ These details were read from the game's own code and then checked against real s
 2. The seed is the one stored for that key in the save. If there is none, it is `hash(character name) + key`.
 3. Unity's random generator is seeded with it and one value between 0 and 1 is drawn. That is the roll.
 4. A second draw, taken modulo 99999999, is stored as the new seed for that key. This happens on every attempt, before the result is judged.
-5. A roll at or below the idol's upgrade chance succeeds. A higher roll fails, and a failed upgrade destroys the item.
+5. A roll of 0.65 or less succeeds. A higher roll fails, and a failed upgrade destroys the item. Every idol tier has the same odds.
 
 Things that follow from this:
 
@@ -72,14 +72,15 @@ Near the end of the payload, after the build-menu blob, come two lists. The seco
 ## What is verified
 
 - The seed-to-roll math matched 14 consecutive real hammer attempts, including every following seed.
+- Those attempts rolled 0.5535 (success) and 0.6602 (fail), which fits a cutoff of 0.65.
+- [ValheimSaveParser](https://github.com/Melichor/ValheimSaveParser) reads the same mechanics independently, including the 0.65 chance and the starting seed from the character name.
 - The key and seed layout match the game's decompiled `Player.GetItemUpgradeChance`.
 - The character name detection returned the right name on every save tested.
 
 ## Known limits
 
-- The success cutoff is only bracketed: a roll of 0.5535 succeeded and 0.6602 failed. The page marks anything in that gap as unclear.
-- Only the wood idol has been tested. Other idols may use different chances.
-- The built-in item list (309 weapons, armour, shields and tools) was copied from [valheim.tools](https://www.valheim.tools/item-ids) in October 2026. It covers names that exist in game version 1.0.20 at that time and may miss newer items. A wrong name gives a plausible but wrong prediction.
+- The 0.65 success chance and the "every failure breaks the item" rule come from the game data as extracted by [ValheimSaveParser](https://github.com/Melichor/ValheimSaveParser). Our own attempts only tested the wood idol, but that project's extraction found the same odds on every upgrader item.
+- The built-in item list (271 weapons, armour, shields and tools that can be upgraded) is based on [valheim.tools](https://www.valheim.tools/item-ids), narrowed to the items [ValheimSaveParser](https://github.com/Melichor/ValheimSaveParser) lists as upgradable, in October 2026. It covers names that exist in game version 1.0.20 at that time and may miss newer items. A wrong name gives a plausible but wrong prediction.
 - Name detection looks for the name stored next to your character ID. A character with no crafted items, or with many items crafted by someone else, may need the name entered by hand.
 - A game patch can change the math or the save format.
 
