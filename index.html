@@ -42,24 +42,19 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 .slot{font:14px var(--mono);border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:4px;padding:6px 10px;cursor:pointer}
 .slot:hover,.slot[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
 .note{font-size:15px;color:var(--muted)}
+.note a{color:var(--accent)}
 .status{border-left:3px solid var(--accent);padding:6px 12px;background:var(--panel);font-size:16px}
 .status.warn{border-color:var(--bad)}
 .summary{font:500 26px/1.2 var(--disp);margin:0 0 4px}
-.ledger{display:grid;gap:6px;margin:12px 0 0;padding:0;list-style:none}
-.ledger li{display:grid;grid-template-columns:2.5ch 8ch 1fr 7.5ch;gap:10px;align-items:center;font:14px var(--mono)}
-.bar{position:relative;height:10px;background:var(--line);border-radius:5px;min-width:0}
-.bar i{position:absolute;top:-3px;width:3px;height:16px;border-radius:2px;background:var(--fg)}
-.bar b{position:absolute;top:0;bottom:0;left:0;border-radius:5px 0 0 5px;opacity:.55}
-.bar u{position:absolute;top:-2px;bottom:-2px;background:var(--maybe);opacity:.35;border-radius:2px}
-.res{font-weight:600;text-align:right}
-.S .res{color:var(--good)} .F .res{color:var(--bad)} .M .res{color:var(--maybe)}
-.S .bar b{background:var(--good)} .F .bar b{background:var(--bad)}
+.paths{display:grid;gap:0;margin-top:12px;border-top:1px solid var(--line)}
+.line{display:grid;grid-template-columns:3ch 1fr auto;gap:12px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line);font:15px var(--mono)}
+.line b{font-weight:600}.line small{color:var(--muted);font-size:13px}
+.line.S b{color:var(--good)}.line.F b{color:var(--bad)}.line.M b{color:var(--maybe)}
 .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted);margin-top:10px}
 details{border-top:1px solid var(--line);padding-top:14px}
 summary{cursor:pointer;font:500 15px var(--disp);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 details p{margin:10px 0;font-size:16px}
 [hidden]{display:none!important}
-@media(max-width:480px){.ledger li{grid-template-columns:2.5ch 7ch 1fr 6.5ch;gap:8px}}
 </style>
 
 </head>
@@ -67,7 +62,7 @@ details p{margin:10px 0;font-size:16px}
 <main>
   <header>
     <h1>Forge Oracle</h1>
-    <p class="lede">Drop in your Valheim character file and see the next Forge of Potential results before you spend an idol. Everything runs in your browser.</p>
+    <p class="lede">Drop in your Valheim character file and see the next Forge of Potential results before you spend an idol. Everything runs in your browser. Your file is never uploaded.</p>
   </header>
 
   <section>
@@ -93,24 +88,21 @@ details p{margin:10px 0;font-size:16px}
         <input id="item" list="items" value="Hammer" autocomplete="off" spellcheck="false">
         <datalist id="items"></datalist>
       </label>
-      <label for="level">Level after the upgrade
-        <input id="level" type="number" min="1" max="30" value="4">
-      </label>
-      <label for="count">Attempts to show
-        <input id="count" type="number" min="1" max="60" value="12">
+      <label for="level">Current level of the item
+        <input id="level" type="number" min="0" max="30" value="3">
       </label>
       <label for="cname">Character name <span class="note" id="nameHint">(filled in from your save)</span>
         <input id="cname" autocomplete="off" spellcheck="false" placeholder="read from your save">
       </label>
     </div>
-    <p class="note">The level is the one the item reaches if the attempt works, so a level 3 hammer is level 4. Names are case sensitive. Use the internal name, not the display name.</p>
+    <p class="note">Enter the level your item is now. Names are case sensitive. Use the internal name, not the display name. Look names up in the <a href="https://www.valheim.tools/item-ids" target="_blank" rel="noopener noreferrer">Valheim item ID list</a>.</p>
   </section>
 
   <section id="out" hidden>
-    <h2>3 &middot; Prediction</h2>
+    <h2>3 &middot; Next ten attempts</h2>
     <p class="summary" id="summary"></p>
     <p class="note" id="source"></p>
-    <ol class="ledger" id="ledger"></ol>
+    <div class="paths" id="paths"></div>
     <div class="legend">
       <span><b style="color:var(--good)">Success</b> roll below 0.55</span>
       <span><b style="color:var(--bad)">Fail</b> roll above 0.66 (the item breaks)</span>
@@ -122,7 +114,7 @@ details p{margin:10px 0;font-size:16px}
     <summary>How this works</summary>
     <p>Each item and target level has its own saved seed in your character file. An attempt turns that seed into one roll between 0 and 1, then stores a new seed. Reloading cannot change the outcome, so the next results can be read ahead of time.</p>
     <p>Seeds are written only when the game saves, so quit to the main menu after any attempt before dropping the file here. Predictions were checked against 14 real attempts on Valheim 1.0.20 with the wood idol. The exact success cutoff is known only to lie between roughly 0.55 and 0.66, which is why that band is marked unclear.</p>
-    <p>If an item has two copies with the same internal name, they share one sequence, and a failed upgrade destroys the copy it was used on.</p>
+    <p>The list is in order. Attempt 1 is what happens on your next upgrade of this item, attempt 2 is the one after that, and so on. A success moves the item up a level, which has its own list, so check the new level after each success. A failure breaks the item, and the next copy you upgrade at the same level gets the next attempt on the list.</p>
   </details>
 </main>
 
@@ -224,7 +216,7 @@ details p{margin:10px 0;font-size:16px}
       if(!m){unknown++;return;}
       var btn=document.createElement("button");btn.type="button";btn.className="slot";
       btn.textContent=m.item+" → level "+m.level;
-      btn.onclick=function(){$("item").value=m.item;$("level").value=m.level;run();};
+      btn.onclick=function(){$("item").value=m.item;$("level").value=m.level-1;run();};
       box.appendChild(btn);
     });
     $("slotsNote").textContent=keys.length===0?"No Forge attempts are stored in this save yet. Predictions start from the character's initial seeds.":
@@ -236,42 +228,33 @@ details p{margin:10px 0;font-size:16px}
   var LABEL={S:"Success",F:"Fail",M:"Unclear"};
 
   function run(){
-    var item=$("item").value.trim(),level=parseInt($("level").value,10),count=Math.min(60,Math.max(1,parseInt($("count").value,10)||12));
-    var out=$("out");
-    if(!item||!level||level<1){out.hidden=true;return;}
-    var key=(hash(item)+level)>>>0,seed=null,src;
-    if(saved&&saved.found&&Object.prototype.hasOwnProperty.call(saved.slots,key)){seed=saved.slots[key];src="Starting from the seed stored in your save for this item and level.";}
+    var item=$("item").value.trim(),cur=parseInt($("level").value,10),out=$("out");
+    if(!item||isNaN(cur)||cur<0){out.hidden=true;return;}
+    var lv=cur+1,key=(hash(item)+lv)>>>0,seed,src;
+    if(saved&&saved.found&&Object.prototype.hasOwnProperty.call(saved.slots,key)){seed=saved.slots[key];src="Seed read from your save for level "+cur+" to "+lv+".";}
     else{
       var nm=$("cname").value.trim();
+      out.hidden=false;
       if(!nm){
-        out.hidden=false;$("summary").textContent="Enter your character name";
-        $("source").textContent="This item and level has no stored seed yet, so the first roll comes from your character name.";
-        $("ledger").innerHTML="";return;
+        $("summary").textContent="Enter your character name";
+        $("source").textContent="This item has not been upgraded at this level yet, so the first roll comes from your character name.";
+        $("paths").innerHTML="";return;
       }
-      seed=(hash(nm)+key)>>>0;src="Fresh slot: no seed saved yet, so this starts from your character name.";
+      seed=(hash(nm)+key)>>>0;src="No saved seed for level "+cur+" to "+lv+" yet, so this starts from your character name.";
     }
-    $("source").textContent=src+" Slot key "+("0x"+key.toString(16).padStart(8,"0"))+", seed "+seed+".";
-    var led=$("ledger");led.innerHTML="";var firstS=-1,s=seed,rows=[];
-    for(var i=1;i<=count;i++){
-      var r=rollNext(s);s=r.next;var c=classify(r.roll);rows.push({i:i,roll:r.roll,c:c});
-      if(firstS<0&&c==="S")firstS=i;
-    }
+    $("source").textContent=src;
+    var box=$("paths");box.innerHTML="";var s=seed,rows=[],i,r;
+    for(i=1;i<=10;i++){r=rollNext(s);s=r.next;rows.push({i:i,roll:r.roll,c:classify(r.roll)});}
     rows.forEach(function(x){
-      var li=document.createElement("li");li.className=x.c;
-      li.innerHTML="<span></span><span></span><span class='bar'><b></b><u></u><i></i></span><span class='res'></span>";
-      var sp=li.children;sp[0].textContent=x.i;sp[1].textContent=x.roll.toFixed(4);
-      sp[2].querySelector("b").style.width=(x.roll*100)+"%";
-      var u=sp[2].querySelector("u");u.style.left="55%";u.style.width="11.1%";
-      sp[2].querySelector("i").style.left="calc("+(x.roll*100)+"% - 1px)";
-      sp[3].textContent=LABEL[x.c];led.appendChild(li);
+      var li=document.createElement("div");li.className="line "+x.c;
+      var a=document.createElement("span");a.textContent=x.i;
+      var b=document.createElement("b");b.textContent=LABEL[x.c];
+      var m=document.createElement("small");m.textContent="roll "+x.roll.toFixed(4);
+      li.appendChild(a);li.appendChild(b);li.appendChild(m);box.appendChild(li);
     });
-    var first=rows.find(function(x){return x.c==="S"});
-    var firstM=rows.find(function(x){return x.c==="M"});
-    var sum;
-    if(first&&(!firstM||first.i<firstM.i))sum=first.i===1?"The next attempt should succeed.":"Attempt "+first.i+" is the first predicted success.";
-    else if(firstM)sum="Attempt "+firstM.i+" lands in the unclear band.";
-    else sum="No success in the next "+count+" attempts.";
-    $("summary").textContent=sum;out.hidden=false;
+    var f=rows[0];
+    $("summary").textContent=f.c==="S"?"The next upgrade should succeed.":f.c==="F"?"The next upgrade should fail and break the item.":"The next upgrade lands in the unclear band.";
+    out.hidden=false;
   }
 
   var drop=$("drop"),fi=$("file");
@@ -281,7 +264,7 @@ details p{margin:10px 0;font-size:16px}
   ["dragenter","dragover"].forEach(function(t){drop.addEventListener(t,function(e){e.preventDefault();drop.classList.add("over");});});
   ["dragleave","drop"].forEach(function(t){drop.addEventListener(t,function(e){e.preventDefault();drop.classList.remove("over");});});
   drop.addEventListener("drop",function(e){loadFile(e.dataTransfer.files[0]);});
-  ["item","level","count","cname"].forEach(function(id){$(id).addEventListener("input",run);});
+  ["item","level","cname"].forEach(function(id){$(id).addEventListener("input",run);});
   run();
 })();
 </script>
