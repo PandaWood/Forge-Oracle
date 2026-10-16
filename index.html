@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Forge Oracle</title>
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;500;700&family=Alegreya+SC:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+[hidden]{display:none!important}
+/* Layout: one narrow column, a drop zone that becomes a reading of the save, then the predicted attempt ledger. */
+:root{
+  --bg:#f3efe6; --panel:#fbf8f1; --fg:#1f2326; --muted:#5d6468; --line:#d9d2c2;
+  --accent:#a8541a; --good:#2f6b3c; --bad:#a3302a; --maybe:#8a6d12;
+  --disp:"Alegreya SC",Georgia,serif; --body:"Alegreya",Georgia,serif; --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#14191c; --panel:#1b2226; --fg:#e8e4d8; --muted:#97a0a4; --line:#2e383d;
+  --accent:#e0914f; --good:#6fbf80; --bad:#e2766f; --maybe:#d8b84e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14191c; --panel:#1b2226; --fg:#e8e4d8; --muted:#97a0a4; --line:#2e383d;
+  --accent:#e0914f; --good:#6fbf80; --bad:#e2766f; --maybe:#d8b84e; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:18px/1.5 var(--body);margin:0;
+  padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:720px;margin:0 auto;display:grid;gap:28px}
+h1{font:700 clamp(34px,7vw,52px)/1.05 var(--disp);letter-spacing:.02em;margin:0;text-wrap:balance}
+.lede{color:var(--muted);margin:10px 0 0;max-width:56ch}
+h2{font:500 15px var(--disp);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.drop{border:2px dashed var(--line);border-radius:6px;background:var(--panel);padding:34px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over,.drop:focus-visible{border-color:var(--accent);outline:none}
+.drop strong{font:500 22px var(--disp);display:block}
+.drop span{color:var(--muted);font-size:16px}
+.drop.loaded{padding:16px 20px;text-align:left;display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.drop.loaded strong{font-size:18px;display:inline}
+.mono{font-family:var(--mono);font-size:14px}
+.row{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+label{display:grid;gap:4px;font-size:15px;color:var(--muted);min-width:0}
+input,select{font:16px var(--body);color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:9px 10px;min-width:0;width:100%}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.slots{display:flex;flex-wrap:wrap;gap:8px}
+.slot{font:14px var(--mono);border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:4px;padding:6px 10px;cursor:pointer}
+.slot:hover,.slot[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.note{font-size:15px;color:var(--muted)}
+.status{border-left:3px solid var(--accent);padding:6px 12px;background:var(--panel);font-size:16px}
+.status.warn{border-color:var(--bad)}
+.summary{font:500 26px/1.2 var(--disp);margin:0 0 4px}
+.ledger{display:grid;gap:6px;margin:12px 0 0;padding:0;list-style:none}
+.ledger li{display:grid;grid-template-columns:2.5ch 8ch 1fr 7.5ch;gap:10px;align-items:center;font:14px var(--mono)}
+.bar{position:relative;height:10px;background:var(--line);border-radius:5px;min-width:0}
+.bar i{position:absolute;top:-3px;width:3px;height:16px;border-radius:2px;background:var(--fg)}
+.bar b{position:absolute;top:0;bottom:0;left:0;border-radius:5px 0 0 5px;opacity:.55}
+.bar u{position:absolute;top:-2px;bottom:-2px;background:var(--maybe);opacity:.35;border-radius:2px}
+.res{font-weight:600;text-align:right}
+.S .res{color:var(--good)} .F .res{color:var(--bad)} .M .res{color:var(--maybe)}
+.S .bar b{background:var(--good)} .F .bar b{background:var(--bad)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted);margin-top:10px}
+details{border-top:1px solid var(--line);padding-top:14px}
+summary{cursor:pointer;font:500 15px var(--disp);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+details p{margin:10px 0;font-size:16px}
+[hidden]{display:none!important}
+@media(max-width:480px){.ledger li{grid-template-columns:2.5ch 7ch 1fr 6.5ch;gap:8px}}
+</style>
+
+</head>
+<body>
+<main>
+  <header>
+    <h1>Forge Oracle</h1>
+    <p class="lede">Drop in your Valheim character file and see the next Forge of Potential results before you spend an idol. Everything runs in your browser.</p>
+  </header>
+
+  <section>
+    <h2>1 &middot; Character file</h2>
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a character file">
+      <strong>Drop your .fch file here</strong>
+      <span>or click to browse. Windows path: <span class="mono">%USERPROFILE%\AppData\LocalLow\IronGate\Valheim\characters_local</span></span>
+    </div>
+    <input type="file" id="file" accept=".fch" hidden>
+    <p id="fileStatus" class="status" hidden></p>
+  </section>
+
+  <section id="slotsSec" hidden>
+    <h2>Forge slots found in your save</h2>
+    <div class="slots" id="slots"></div>
+    <p class="note" id="slotsNote"></p>
+  </section>
+
+  <section>
+    <h2>2 &middot; What are you upgrading?</h2>
+    <div class="row">
+      <label for="item">Item (internal name)
+        <input id="item" list="items" value="Hammer" autocomplete="off" spellcheck="false">
+        <datalist id="items"></datalist>
+      </label>
+      <label for="level">Level after the upgrade
+        <input id="level" type="number" min="1" max="30" value="4">
+      </label>
+      <label for="count">Attempts to show
+        <input id="count" type="number" min="1" max="60" value="12">
+      </label>
+      <label for="cname">Character name <span class="note" id="nameHint">(filled in from your save)</span>
+        <input id="cname" autocomplete="off" spellcheck="false" placeholder="read from your save">
+      </label>
+    </div>
+    <p class="note">The level is the one the item reaches if the attempt works, so a level 3 hammer is level 4. Names are case sensitive. Use the internal name, not the display name.</p>
+  </section>
+
+  <section id="out" hidden>
+    <h2>3 &middot; Prediction</h2>
+    <p class="summary" id="summary"></p>
+    <p class="note" id="source"></p>
+    <ol class="ledger" id="ledger"></ol>
+    <div class="legend">
+      <span><b style="color:var(--good)">Success</b> roll below 0.55</span>
+      <span><b style="color:var(--bad)">Fail</b> roll above 0.66 (the item breaks)</span>
+      <span><b style="color:var(--maybe)">Unclear</b> in the gap between</span>
+    </div>
+  </section>
+
+  <details>
+    <summary>How this works</summary>
+    <p>Each item and target level has its own saved seed in your character file. An attempt turns that seed into one roll between 0 and 1, then stores a new seed. Reloading cannot change the outcome, so the next results can be read ahead of time.</p>
+    <p>Seeds are written only when the game saves, so quit to the main menu after any attempt before dropping the file here. Predictions were checked against 14 real attempts on Valheim 1.0.20 with the wood idol. The exact success cutoff is known only to lie between roughly 0.55 and 0.66, which is why that band is marked unclear.</p>
+    <p>If an item has two copies with the same internal name, they share one sequence, and a failed upgrade destroys the copy it was used on.</p>
+  </details>
+</main>
+
+<script>
+(function(){
+  var M=0xFFFFFFFF, A=1812433253;
+  var ITEMS=["Hammer","Hoe","Cultivator","Club","KnifeFlint","KnifeCopper","KnifeBlackMetal","KnifeSilver","KnifeChitin","AxeFlint","AxeBronze","AxeIron","AxeBlackMetal","AxeStone","PickaxeAntler","PickaxeBronze","PickaxeIron","PickaxeBlackMetal","SledgeStagbreaker","SledgeIron","SledgeDemolisher","MaceBronze","MaceIron","MaceSilver","MaceNeedle","SwordBronze","SwordIron","SwordSilver","SwordBlackmetal","SwordCheat","Atgeir","AtgeirBronze","AtgeirIron","AtgeirBlackmetal","SpearFlint","SpearBronze","SpearElderbark","SpearWolfFang","SpearChitin","SpearCarapace","BowFineWood","BowHuntsman","BowDraugrFang","BowSpineSnap","BowAshlands","CrossbowArbalest","ShieldWood","ShieldBronzeBuckler","ShieldBanded","ShieldIronSquare","ShieldIronTower","ShieldSilver","ShieldBlackmetal","ShieldBlackmetalTower","Torch","FishingRod"];
+  function hash(s){var n=5381,n2=5381;for(var i=0;i<s.length;i+=2){n=(Math.imul(n,33)^s.charCodeAt(i))>>>0;if(i===s.length-1)break;n2=(Math.imul(n2,33)^s.charCodeAt(i+1))>>>0;}return (n+Math.imul(n2,1566083941))>>>0;}
+  function rollNext(seed){
+    var s0=seed>>>0,s1=(Math.imul(s0,A)+1)>>>0,s2=(Math.imul(s1,A)+1)>>>0,s3=(Math.imul(s2,A)+1)>>>0;
+    function step(){var t=(s0^(s0<<11))>>>0;s0=s1;s1=s2;s2=s3;s3=((s3^(s3>>>19))^(t^(t>>>8)))>>>0;return s3;}
+    var r1=step(),r2=step();
+    return {roll:(r1&0x7FFFFF)/8388607,next:r2%99999999};
+  }
+  function readSlots(buf){
+    var dv=new DataView(buf),u8=new Uint8Array(buf),len=buf.byteLength;
+    if(len<80)throw new Error("That file is too small to be a character save.");
+    var n=dv.getUint32(0,true);
+    if(n+4>len)throw new Error("That does not look like a Valheim character file.");
+    var ver=dv.getUint32(4,true);
+    var res={version:ver,slots:{},hashOk:null};
+    if(ver<47){res.old=true;return res;}
+    var end0=4+n,i,L,end,o,cnt,k,ln,a,b;
+    for(i=end0-12;i>Math.max(end0-20000,4);i--){
+      L=dv.getUint32(i,true);end=i+4+L;
+      if(L<20||end>end0||end0-end>4096)continue;
+      cnt=dv.getUint32(i+4,true);if(cnt>2000)continue;
+      o=i+8;var ok=true;
+      for(k=0;k<cnt;k++){if(o+4>end0){ok=false;break;}ln=dv.getUint32(o,true);if(ln>100){ok=false;break;}o+=4+ln;}
+      if(!ok||o+8!==end)continue;
+      a=dv.getUint32(end,true);o=end+4+a*8;if(o+4>end0)continue;
+      b=dv.getUint32(o,true);o+=4;
+      if(o+b*8!==end0)continue;
+      for(k=0;k<b;k++)res.slots[dv.getUint32(o+8*k,true)]=dv.getUint32(o+8*k+4,true);
+      res.count=b;res.found=true;return res;
+    }
+    res.found=false;return res;
+  }
+  function detectName(buf){
+    var u=new Uint8Array(buf),end=Math.min(4+new DataView(buf).getUint32(0,true),u.length),seen={},best=null,i,j,L,ok,c,sides,s,a,z,key,name;
+    for(i=12;i<end-10;i++){
+      L=u[i];if(L<3||L>20||i+1+L+8>end)continue;
+      ok=true;name="";
+      for(j=0;j<L;j++){c=u[i+1+j];if(!((c>=48&&c<=57)||(c>=65&&c<=90)||(c>=97&&c<=122)||c===32||c===95||c===45||c===39)){ok=false;break;}name+=String.fromCharCode(c);}
+      if(!ok)continue;
+      sides=[i-8,i+1+L];
+      for(s=0;s<2;s++){
+        a=sides[s];
+        if(u[a+4]||u[a+5]||u[a+6]||u[a+7])continue;
+        if(!(u[a]||u[a+1]||u[a+2]||u[a+3]))continue;
+        key=name+"|"+u[a]+"."+u[a+1]+"."+u[a+2]+"."+u[a+3];
+        z=seen[key]||(seen[key]={name:name,n:0,pos:i});z.n++;
+        if(z.n>=2&&(!best||z.n>best.n||(z.n===best.n&&z.pos<best.pos)))best=z;
+      }
+    }
+    return best?best.name:"";
+  }
+  var $=function(id){return document.getElementById(id)};
+  var saved=null;
+  var dl=$("items");ITEMS.forEach(function(n){var o=document.createElement("option");o.value=n;dl.appendChild(o);});
+  var known={};ITEMS.forEach(function(n){for(var l=1;l<=30;l++)known[(hash(n)+l)>>>0]={item:n,level:l};});
+
+  function status(msg,warn){var e=$("fileStatus");e.textContent=msg;e.hidden=!msg;e.className="status"+(warn?" warn":"");}
+
+  function loadFile(f){
+    if(!f)return;
+    var fr=new FileReader();
+    fr.onload=function(){
+      var buf=fr.result;
+      try{saved=readSlots(buf);}catch(err){saved=null;status(err.message,true);return;}
+      var d=$("drop");d.classList.add("loaded");
+      d.innerHTML="<strong></strong><span class='mono'></span>";
+      d.firstChild.textContent=f.name;d.lastChild.textContent="save version "+saved.version+" · click to replace";
+      if(saved.old){status("This save is from before the Forge seeds were stored (version "+saved.version+"). Predictions will start from the character's initial seeds.",true);}
+      else if(!saved.found){status("Could not find the Forge seed table in this file. The format may have changed in a newer patch.",true);}
+      else{status(saved.count+" Forge seed"+(saved.count===1?"":"s")+" found in the save.",false);}
+      if(window.crypto&&crypto.subtle){
+        var dvv=new DataView(buf),n=dvv.getUint32(0,true);
+        if(n+4+4+64<=buf.byteLength){crypto.subtle.digest("SHA-512",buf.slice(4,4+n)).then(function(h){
+          var a=new Uint8Array(h),b=new Uint8Array(buf,8+n,64),same=true;for(var i=0;i<64;i++)if(a[i]!==b[i]){same=false;break;}
+          if(!same)status($("fileStatus").textContent+" The file's checksum did not match, so it may be damaged or edited.",true);
+        });}
+      }
+      var dn=detectName(buf);
+      if(dn){$("cname").value=dn;$("nameHint").textContent="(read from your save, edit if wrong)";}
+      else{$("nameHint").textContent="(could not be read, enter it yourself)";}
+      renderSlots();run();
+    };
+    fr.onerror=function(){status("The file could not be read.",true);};
+    fr.readAsArrayBuffer(f);
+  }
+
+  function renderSlots(){
+    var sec=$("slotsSec"),box=$("slots");box.innerHTML="";
+    if(!saved||!saved.found){sec.hidden=true;return;}
+    var keys=Object.keys(saved.slots).map(Number),unknown=0;
+    keys.forEach(function(k){
+      var m=known[k>>>0];
+      if(!m){unknown++;return;}
+      var btn=document.createElement("button");btn.type="button";btn.className="slot";
+      btn.textContent=m.item+" → level "+m.level;
+      btn.onclick=function(){$("item").value=m.item;$("level").value=m.level;run();};
+      box.appendChild(btn);
+    });
+    $("slotsNote").textContent=keys.length===0?"No Forge attempts are stored in this save yet. Predictions start from the character's initial seeds.":
+      unknown?unknown+" more seed"+(unknown===1?"":"s")+" belong to items outside the built-in list. Type their internal name below to see them.":"";
+    sec.hidden=false;
+  }
+
+  function classify(r){return r<=0.55?"S":r>=0.661?"F":"M";}
+  var LABEL={S:"Success",F:"Fail",M:"Unclear"};
+
+  function run(){
+    var item=$("item").value.trim(),level=parseInt($("level").value,10),count=Math.min(60,Math.max(1,parseInt($("count").value,10)||12));
+    var out=$("out");
+    if(!item||!level||level<1){out.hidden=true;return;}
+    var key=(hash(item)+level)>>>0,seed=null,src;
+    if(saved&&saved.found&&Object.prototype.hasOwnProperty.call(saved.slots,key)){seed=saved.slots[key];src="Starting from the seed stored in your save for this item and level.";}
+    else{
+      var nm=$("cname").value.trim();
+      if(!nm){
+        out.hidden=false;$("summary").textContent="Enter your character name";
+        $("source").textContent="This item and level has no stored seed yet, so the first roll comes from your character name.";
+        $("ledger").innerHTML="";return;
+      }
+      seed=(hash(nm)+key)>>>0;src="Fresh slot: no seed saved yet, so this starts from your character name.";
+    }
+    $("source").textContent=src+" Slot key "+("0x"+key.toString(16).padStart(8,"0"))+", seed "+seed+".";
+    var led=$("ledger");led.innerHTML="";var firstS=-1,s=seed,rows=[];
+    for(var i=1;i<=count;i++){
+      var r=rollNext(s);s=r.next;var c=classify(r.roll);rows.push({i:i,roll:r.roll,c:c});
+      if(firstS<0&&c==="S")firstS=i;
+    }
+    rows.forEach(function(x){
+      var li=document.createElement("li");li.className=x.c;
+      li.innerHTML="<span></span><span></span><span class='bar'><b></b><u></u><i></i></span><span class='res'></span>";
+      var sp=li.children;sp[0].textContent=x.i;sp[1].textContent=x.roll.toFixed(4);
+      sp[2].querySelector("b").style.width=(x.roll*100)+"%";
+      var u=sp[2].querySelector("u");u.style.left="55%";u.style.width="11.1%";
+      sp[2].querySelector("i").style.left="calc("+(x.roll*100)+"% - 1px)";
+      sp[3].textContent=LABEL[x.c];led.appendChild(li);
+    });
+    var first=rows.find(function(x){return x.c==="S"});
+    var firstM=rows.find(function(x){return x.c==="M"});
+    var sum;
+    if(first&&(!firstM||first.i<firstM.i))sum=first.i===1?"The next attempt should succeed.":"Attempt "+first.i+" is the first predicted success.";
+    else if(firstM)sum="Attempt "+firstM.i+" lands in the unclear band.";
+    else sum="No success in the next "+count+" attempts.";
+    $("summary").textContent=sum;out.hidden=false;
+  }
+
+  var drop=$("drop"),fi=$("file");
+  drop.addEventListener("click",function(){fi.click();});
+  drop.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();fi.click();}});
+  fi.addEventListener("change",function(){loadFile(fi.files[0]);});
+  ["dragenter","dragover"].forEach(function(t){drop.addEventListener(t,function(e){e.preventDefault();drop.classList.add("over");});});
+  ["dragleave","drop"].forEach(function(t){drop.addEventListener(t,function(e){e.preventDefault();drop.classList.remove("over");});});
+  drop.addEventListener("drop",function(e){loadFile(e.dataTransfer.files[0]);});
+  ["item","level","count","cname"].forEach(function(id){$(id).addEventListener("input",run);});
+  run();
+})();
+</script>
+
+</body>
+</html>
