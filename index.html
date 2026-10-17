@@ -34,6 +34,8 @@ h2{font:500 15px var(--disp);letter-spacing:.14em;text-transform:uppercase;color
 .drop.loaded{padding:16px 20px;text-align:left;display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}
 .drop.loaded strong{font-size:18px;display:inline}
 .mono{font-family:var(--mono);font-size:14px}
+main>*{min-width:0}
+.drop .mono{overflow-wrap:anywhere}
 .row{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
 label{display:grid;gap:4px;font-size:15px;color:var(--muted);min-width:0}
 input,select{font:16px var(--body);color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:9px 10px;min-width:0;width:100%}
@@ -61,6 +63,12 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid 
 .ref-row span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ref-row .mono{color:var(--muted);flex:none}
 .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted);margin-top:10px}
+.finder{border-top:1px solid var(--line);padding-top:14px}
+.finder .row{margin:12px 0}
+.finder button.go{font:500 16px var(--body);color:var(--bg);background:var(--accent);border:0;border-radius:4px;padding:9px 16px;cursor:pointer}
+.finder button.go:disabled{opacity:.5;cursor:default}
+.frow{display:grid;grid-template-columns:7ch 1fr;gap:12px;align-items:baseline;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);color:var(--fg);font:15px var(--mono);padding:8px 0;cursor:pointer}
+.frow:hover,.frow:focus-visible{color:var(--accent)}
 details{border-top:1px solid var(--line);padding-top:14px}
 summary{cursor:pointer;font:500 15px var(--disp);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 details p{margin:10px 0;font-size:16px}
@@ -118,6 +126,19 @@ details p{margin:10px 0;font-size:16px}
       <span><b style="color:var(--bad)">Fail</b> roll above 0.65 (the item breaks)</span>
     </div>
   </section>
+
+    <details class="finder" id="finder">
+    <summary>Find a starting name (experimental)</summary>
+    <p class="note">For a brand-new character, the first roll for an item and level comes from the character name. This searches for names whose first rolls succeed several levels in a row for the item and level entered above. It only helps a character that has never tried that item at those levels. Not yet tested in game.</p>
+    <div class="row">
+      <label for="fmax">Name length to try
+        <select id="fmax"><option value="4" selected>3 to 4 letters (about 2 seconds)</option><option value="3">3 letters only (instant)</option><option value="5">3 to 5 letters (slow)</option></select>
+      </label>
+    </div>
+    <p><button class="go" id="fgo" type="button">Search names</button> <span class="note" id="fprog"></span></p>
+    <div class="paths" id="fres"></div>
+    <p class="note" id="fnote" hidden>Tap a name to enter it above and see its next ten upgrades. Check the game accepts the name when you create the character.</p>
+  </details>
 
     <details class="ref" id="ref">
     <summary>Item names and IDs</summary>
@@ -315,6 +336,44 @@ details p{margin:10px 0;font-size:16px}
   ["dragenter","dragover"].forEach(function(t){drop.addEventListener(t,function(e){e.preventDefault();drop.classList.add("over");});});
   ["dragleave","drop"].forEach(function(t){drop.addEventListener(t,function(e){e.preventDefault();drop.classList.remove("over");});});
   drop.addEventListener("drop",function(e){loadFile(e.dataTransfer.files[0]);});
+
+  var fbusy=false;
+  function finder(){
+    if(fbusy)return;
+    var item=$("item").value.trim(),cur=parseInt($("level").value,10),maxLen=parseInt($("fmax").value,10);
+    var prog=$("fprog"),res=$("fres");res.innerHTML="";$("fnote").hidden=true;
+    if(!item||isNaN(cur)||cur<0){prog.textContent="Enter an item and its current level first.";return;}
+    var ih=hash(item),UP="ABCDEFGHIJKLMNOPQRSTUVWXYZ",LO="abcdefghijklmnopqrstuvwxyz";
+    function streak(nm){var hn=hash(nm),n=0;while(n<20){var key=(ih+cur+1+n)>>>0;if(rollNext((hn+key)>>>0).roll>0.65)break;n++;}return n;}
+    function nameAt(len,i){var s="",d;for(d=0;d<len-1;d++){s=LO[i%26]+s;i=Math.floor(i/26);}return UP[i]+s;}
+    var best=[],total=0,len,count=[],L;
+    for(L=3;L<=maxLen;L++){count[L]=Math.pow(26,L);total+=count[L];}
+    var done=0,idx=0;len=3;fbusy=true;$("fgo").disabled=true;
+    function tick(){
+      var stopAt=Date.now()+40;
+      while(len<=maxLen&&Date.now()<stopAt){
+        var nm=nameAt(len,idx),k=streak(nm);
+        if(k>=1&&(best.length<10||k>best[best.length-1].k)){best.push({k:k,nm:nm});best.sort(function(a,b){return b.k-a.k;});if(best.length>10)best.pop();}
+        idx++;done++;
+        if(idx>=count[len]){len++;idx=0;}
+      }
+      prog.textContent="Searching… "+Math.floor(done/total*100)+"%";
+      if(len<=maxLen){setTimeout(tick,0);return;}
+      fbusy=false;$("fgo").disabled=false;prog.textContent="Checked "+total.toLocaleString()+" names.";
+      if(!best.length){prog.textContent+=" None succeeded on the first upgrade.";return;}
+      best.forEach(function(x){
+        var b=document.createElement("button");b.type="button";b.className="frow";
+        var a=document.createElement("b");a.textContent=x.k+" in a row";
+        var c=document.createElement("span");c.textContent=x.nm;
+        b.appendChild(c);b.appendChild(a);b.style.gridTemplateColumns="1fr auto";
+        b.addEventListener("click",function(){$("cname").value=x.nm;$("nameHint").textContent="(from the name finder)";run();$("out").scrollIntoView({block:"start"});});
+        res.appendChild(b);
+      });
+      $("fnote").hidden=false;
+    }
+    tick();
+  }
+  $("fgo").addEventListener("click",finder);
   ["item","level","cname"].forEach(function(id){$(id).addEventListener("input",run);});
   run();
 })();
