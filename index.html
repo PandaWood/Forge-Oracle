@@ -48,6 +48,16 @@ main>*{min-width:0}
 .row{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
 label{display:grid;gap:4px;font-size:15px;color:var(--muted);min-width:0}
 input,select{font:16px var(--body);color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:9px 10px;min-width:0;width:100%}
+.field{display:grid;gap:4px;font-size:15px;color:var(--muted);min-width:0;align-content:start}
+.combo{position:relative}
+.combo input{padding-right:38px}
+.combo-btn{position:absolute;right:1px;top:1px;bottom:1px;width:36px;display:grid;place-items:center;border:0;border-radius:0 4px 4px 0;background:none;color:var(--muted);cursor:pointer}
+.combo-btn:hover{color:var(--accent)}
+.combo-list{position:absolute;z-index:5;left:0;top:calc(100% + 4px);width:max(100%,min(360px,calc(100vw - 32px)));max-height:340px;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:4px;box-shadow:0 10px 28px rgba(0,0,0,.28)}
+.combo-group{position:sticky;top:0;background:var(--panel);font:500 12px var(--disp);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:8px 10px 4px;border-bottom:1px solid var(--line)}
+.combo-opt{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:6px 10px;cursor:pointer;color:var(--fg);font-size:15px}
+.combo-opt .mono{color:var(--muted);font-size:12px;flex:none}
+.combo-opt:hover,.combo-opt[aria-selected="true"]{background:var(--bg);color:var(--accent)}
 input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .slots{display:flex;flex-wrap:wrap;gap:8px}
 .slot{font:14px var(--mono);border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:4px;padding:6px 10px;cursor:pointer}
@@ -133,10 +143,14 @@ details p{margin:10px 0;font-size:16px}
   <section>
     <h2>2 &middot; What are you upgrading?</h2>
     <div class="row">
-      <label for="item">Item (internal name)
-        <input id="item" list="items" value="Hammer" autocomplete="off" spellcheck="false">
-        <datalist id="items"></datalist>
-      </label>
+      <div class="field">
+        <label for="item">Item</label>
+        <div class="combo">
+          <input id="item" role="combobox" aria-expanded="false" aria-controls="itemList" aria-autocomplete="list" value="Hammer" autocomplete="off" spellcheck="false">
+          <button type="button" class="combo-btn" id="itemBtn" tabindex="-1" aria-label="Show all items"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
+          <div class="combo-list" id="itemList" role="listbox" aria-label="Items" hidden></div>
+        </div>
+      </div>
       <label for="level">Current level of the item
         <input id="level" type="number" min="0" max="30" value="3">
       </label>
@@ -144,7 +158,7 @@ details p{margin:10px 0;font-size:16px}
         <input id="cname" autocomplete="off" spellcheck="false" placeholder="read from your save">
       </label>
     </div>
-    <p class="note">Enter the level your item is now. Names are case sensitive. Use the internal name, not the display name. Not sure of the name? <a href="#ref" id="refLink">Browse item names and IDs</a>.</p>
+    <p class="note">Pick the item from the list, or type to search by name or internal ID. Enter the level your item is now. Not sure which item? <a href="#ref" id="refLink">Browse item names and IDs</a>.</p>
   </section>
 
   <section id="out" hidden>
@@ -313,7 +327,6 @@ details p{margin:10px 0;font-size:16px}
   var ITEMDATA={"Weapons":[["Abyssal Razor","KnifeChitin"],["Ancient Bark Spear","SpearElderbark"],["Arbalest","CrossbowArbalest"],["Ash Fang","BowAshlands"],["Battleaxe","Battleaxe"],["Berserkir Axes","AxeBerzerkr"],["Black Metal Atgeir","AtgeirBlackmetal"],["Black Metal Axe","AxeBlackMetal"],["Black Metal Battleaxe","BattleaxeBlackmetal"],["Black Metal Knife","KnifeBlackMetal"],["Black Metal Pickaxe","PickaxeBlackMetal"],["Black Metal Sword","SwordBlackmetal"],["Bleeding Berserkir Axes","AxeBerzerkrBlood"],["Blood Fang","BowAshlandsBlood"],["Bloodgeon","MaceEldnerBlood"],["Bronze Atgeir","AtgeirBronze"],["Bronze Axe","AxeBronze"],["Bronze Mace","MaceBronze"],["Bronze Pickaxe","PickaxeBronze"],["Bronze Spear","SpearBronze"],["Bronze Sword","SwordBronze"],["Brutal Slayer","THSwordSlayerBlood"],["Carapace Spear","SpearCarapace"],["Club","Club"],["Copper Knife","KnifeCopper"],["Crude Bow","Bow"],["Crystal Battleaxe","BattleaxeCrystal"],["Dead Raiser","StaffSkeleton"],["Demolisher","SledgeDemolisher"],["Draugr Fang","BowDraugrFang"],["Dundr","StaffLightning"],["Dyrnwyn","SwordDyrnwyn"],["Early Axes","AxeEarly"],["Echo Spike","StaffOrbofAhri"],["Fang Spear","SpearWolfFang"],["Finewood Bow","BowFineWood"],["Flametal Mace","MaceEldner"],["Flesh Rippers","FistFenrirClaw"],["Flint Axe","AxeFlint"],["Flint Knife","KnifeFlint"],["Flint Spear","SpearFlint"],["Frostfire Atgeir","AtgeirGold_FrostFire"],["Frostfire Axe","AxeGold_FrostFire"],["Frostfire Bow","BowGold_FrostFire"],["Frostfire Crossbow","CrossbowGold_FrostFire"],["Frostfire Dagger","KnifeGold_FrostFire"],["Frostfire Greataxe","BattleaxeGold_FrostFire"],["Frostfire Greatsword","THSwordGold_FrostFire"],["Frostfire Knucklechains","FistGold_FrostFire"],["Frostfire Mace","MaceGold_FrostFire"],["Frostfire Sledge","SledgeGold_FrostFire"],["Frostfire Spear","SpearGold_FrostFire"],["Frostfire Sword","SwordGold_FrostFire"],["Frostner","MaceSilver"],["Himminafl","AtgeirHimminAfl"],["Huntsman Bow","BowHuntsman"],["Iron Atgeir","AtgeirIron"],["Iron Axe","AxeIron"],["Iron Mace","MaceIron"],["Iron Pickaxe","PickaxeIron"],["Iron Sledge","SledgeIron"],["Iron Sword","SwordIron"],["Jotun Bane","AxeJotunBane"],["Klossen","MaceEldnerNature"],["Krom","THSwordKrom"],["Lightning Strike","StaffThunderBlood"],["Mistwalker","SwordMistwalker"],["Nidhögg","SwordNiedhogg"],["Nidhögg the Bleeding","SwordNiedhoggBlood"],["Nidhögg the Primal","SwordNiedhoggNature"],["Nidhögg the Thundering","SwordNiedhoggLightning"],["Nord Atgeir","AtgeirGold"],["Nord Axe","AxeGold"],["Nord Bow","BowGold"],["Nord Crossbow","CrossbowGold"],["Nord Dagger","KnifeGold"],["Nord Greataxe","BattleaxeGold"],["Nord Greatsword","THSwordGold"],["Nord Knucklechains","FistGold"],["Nord Mace","MaceGold"],["Nord Sledge","SledgeGold"],["Nord Spear","SpearGold"],["Nord Sword","SwordGold"],["Northern Vengeance","StaffFrostOrbs"],["Paws of the Bear","FistBjornClaw"],["Porcupine","MaceNeedle"],["Primal Berserkir Axes","AxeBerzerkrNature"],["Primal Slayer","THSwordSlayerNature"],["Ripper","CrossbowRipper"],["Root Fang","BowAshlandsRoot"],["Root Ripper","CrossbowRipperNature"],["Scourging Slayer","THSwordSlayerLightning"],["Scythe","Scythe"],["Silver Knife","KnifeSilver"],["Silver Sword","SwordSilver"],["Skoll and Hati","KnifeSkollAndHati"],["Skull Splittur","BattleaxeSkullSplittur"],["Slayer","THSwordSlayer"],["Snow Shovel","Shovel"],["Spinesnap","BowSpineSnap"],["Spirit Caller","StaffSpiritCaller"],["Splitnir","SpearSplitner"],["Splitnir the Bleeding","SpearSplitner_Blood"],["Splitnir the Primal","SpearSplitner_Nature"],["Splitnir the Storming","SpearSplitner_Lightning"],["Staff of Embers","StaffFireball"],["Staff of Fracturing","StaffClusterbomb"],["Staff of Frost","StaffIceShards"],["Staff of Protection","StaffShield"],["Staff of the Wild","StaffGreenRoots"],["Stagbreaker","SledgeStagbreaker"],["Stone Axe","AxeStone"],["Storm Fang","BowAshlandsStorm"],["Storm Ripper","CrossbowRipperLightning"],["Storm Star","MaceEldnerLightning"],["Thunderblood Atgeir","AtgeirGold_BloodLightning"],["Thunderblood Axe","AxeGold_BloodLightning"],["Thunderblood Bow","BowGold_BloodLightning"],["Thunderblood Crossbow","CrossbowGold_BloodLightning"],["Thunderblood Dagger","KnifeGold_BloodLightning"],["Thunderblood Greataxe","BattleaxeGold_BloodLightning"],["Thunderblood Greatsword","THSwordGold_BloodLightning"],["Thunderblood Knucklechains","FistGold_BloodLightning"],["Thunderblood Mace","MaceGold_BloodLightning"],["Thunderblood Sledge","SledgeGold_BloodLightning"],["Thunderblood Spear","SpearGold_BloodLightning"],["Thunderblood Sword","SwordGold_BloodLightning"],["Thundering Berserkir Axes","AxeBerzerkrLightning"],["Trollstav","StaffRedTroll"],["Vilebone Maulclaws","FistBjornUndeadClaw"],["Voidcaller","KnifeVoid"],["Wooden Atgeir","AtgeirWood"],["Wooden Axe","AxeWood"],["Wooden Battleaxe","BattleaxeWood"],["Wooden Greatsword","THSwordWood"],["Wooden Knife","KnifeWood"],["Wooden Mace","MaceWood"],["Wooden Sledge","SledgeWood"],["Wooden Spear","SpearWood"],["Wooden Sword","SwordWood"],["Wound Ripper","CrossbowRipperBlood"]],"Armour":[["Ashen Cape","CapeAsh"],["Asksvin Cloak","CapeAsksvin"],["Blue Dress with Beads","ArmorDress6"],["Blue Dress with Shawl","ArmorDress5"],["Blue Tied Headscarf","HelmetHat1"],["Blue Tunic with Beads","ArmorTunic3"],["Blue Tunic with Cape","ArmorTunic2"],["Breastplate of Ask","ArmorAshlandsMediumChest"],["Breastplate of the Protector","ArmorDeepNorthHeavyChest"],["Bronze Helmet","HelmetBronze"],["Bronze Plate Leggings","ArmorBronzeLegs"],["Bronze Plate Tunic","ArmorBronzeChest"],["Brown Dress with Beads","ArmorDress3"],["Brown Dress with Shawl","ArmorDress2"],["Brown Fur Cap","HelmetHat3"],["Cape of Oden","CapeOdin"],["Cape of the Caller","CapeDeepNorthMage"],["Carapace Breastplate","ArmorCarapaceChest"],["Carapace Greaves","ArmorCarapaceLegs"],["Carapace Helmet","HelmetCarapace"],["Celebratory Cap","HelmetCelebration"],["Chestpiece of the Vanguard","ArmorDeepNorthMediumChest"],["Deer Hide Cape","CapeDeerHide"],["Drake Helmet","HelmetDrake"],["Eitr-weave Hood","HelmetMage"],["Eitr-weave Robe","ArmorMageChest"],["Eitr-weave Trousers","ArmorMageLegs"],["Extravagant Green Cap","HelmetHat4"],["Extravagant Orange Cap","HelmetHat9"],["Feather Cape","CapeFeather"],["Fenris Coat","ArmorFenringChest"],["Fenris Hood","HelmetFenring"],["Fenris Leggings","ArmorFenringLegs"],["Fishing Hat","HelmetFishingHat"],["Flametal Breastplate","ArmorFlametalChest"],["Flametal Greaves","ArmorFlametalLegs"],["Flametal Helmet","HelmetFlametal"],["Green Twisted Headscarf","HelmetHat2"],["Grey Fur Cap","HelmetHat8"],["Harvest Dress","ArmorHarvester2"],["Harvest Tunic","ArmorHarvester1"],["Headdress of the Bear","HelmetBerserkerHood"],["Headdress of the Caller","HelmetDNMage"],["Hood of Ask","HelmetAshlandsMediumHood"],["Hood of Embla","HelmetMage_Ashlands"],["Hood of Oden","HelmetOdin"],["Hood of the Vanguard","HelmetDNMediumHood"],["Iron Greaves","ArmorIronLegs"],["Iron Helmet","HelmetIron"],["Iron Scale Mail","ArmorIronChest"],["Leather Helmet","HelmetLeather"],["Leather Trousers","ArmorLeatherLegs"],["Leather Tunic","ArmorLeatherChest"],["Linen Cape","CapeLinen"],["Loincloth of the Bear","ArmorBerserkerLegs"],["Lox Cape","CapeLox"],["Lox Fur Hood","HelmetLox"],["Lox Fur Jacket","ArmorLoxChest"],["Lox Fur Trousers","ArmorLoxLegs"],["Moose Hide Cape","CapeDeepNorth"],["Padded Cuirass","ArmorPaddedCuirass"],["Padded Greaves","ArmorPaddedGreaves"],["Padded Helmet","HelmetPadded"],["Patterns of the Bear","ArmorBerserkerChest"],["Plain Blue Dress","ArmorDress4"],["Plain Blue Tunic","ArmorTunic1"],["Plain Brown Dress","ArmorDress1"],["Plain Red Tunic","ArmorTunic4"],["Plain Yellow Dress","ArmorDress7"],["Plain Yellow Tunic","ArmorTunic7"],["Pointy Hat","HelmetPointyHat"],["Rag Trousers","ArmorRagsLegs"],["Rag Tunic","ArmorRagsChest"],["Red Tunic with Beads","ArmorTunic6"],["Red Tunic with Cape","ArmorTunic5"],["Red Twisted Headscarf","HelmetHat7"],["Robes of Embla","ArmorMageChest_Ashlands"],["Robes of the Caller","ArmorDeepNorthMageChest"],["Root Harnesk","ArmorRootChest"],["Root Leggings","ArmorRootLegs"],["Root Mask","HelmetRoot"],["Simple Purple Cap","HelmetHat10"],["Simple Red Cap","HelmetHat5"],["Simple Undyed Dress","ArmorDress10"],["Simple Undyed Tunic","ArmorTunic10"],["Straw Hat","HelmetStrawHat"],["Troll Hide Cape","CapeTrollHide"],["Troll Leather Hood","HelmetTrollLeather"],["Troll Leather Trousers","ArmorTrollLeatherLegs"],["Troll Leather Tunic","ArmorTrollLeatherChest"],["Trousers of Ask","ArmorAshlandsMediumlegs"],["Trousers of Embla","ArmorMageLegs_Ashlands"],["Trousers of the Caller","ArmorDeepNorthMagelegs"],["Trousers of the Protector","ArmorDeepNorthHeavylegs"],["Trousers of the Vanguard","ArmorDeepNorthMediumlegs"],["Vilebone Cage","ArmorBerserkerUndeadChest"],["Vilebone Drapes","ArmorBerserkerUndeadLegs"],["Vilebone Visage","HelmetBerserkerUndead"],["Wolf Fur Cape","CapeWolf"],["Wolf Hide Chestpiece","ArmorWolfChest"],["Wolf Hide Trousers","ArmorWolfLegs"],["Yellow Dress with Beads","ArmorDress9"],["Yellow Dress with Shawl","ArmorDress8"],["Yellow Tied Headscarf","HelmetHat6"],["Yellow Tunic with Beads","ArmorTunic9"],["Yellow Tunic with Cape","ArmorTunic8"]],"Shields":[["Banded Shield","ShieldBanded"],["Black Metal Shield","ShieldBlackmetal"],["Black Metal Tower Shield","ShieldBlackmetalTower"],["Bone Tower Shield","ShieldBoneTower"],["Bronze Buckler","ShieldBronzeBuckler"],["Carapace Buckler","ShieldCarapaceBuckler"],["Carapace Shield","ShieldCarapace"],["Flametal Shield","ShieldFlametal"],["Flametal Tower Shield","ShieldFlametalTower"],["Iron Buckler","ShieldIronBuckler"],["Iron Shield","ShieldIronSquare"],["Iron Tower Shield","ShieldIronTower"],["Nord Buckler","ShieldGoldBuckler"],["Nord Greatshield","ShieldGoldTower"],["Nord Shield","ShieldGold"],["Serpent Scale Shield","ShieldSerpentscale"],["Shield of Roots","ShieldRoots"],["Silver Shield","ShieldSilver"],["Wood Shield","ShieldWood"],["Wood Tower Shield","ShieldWoodTower"]],"Tools":[["Cultivator","Cultivator"],["Hammer","Hammer"],["Hoe","Hoe"],["Serving Tray","Feaster"]]};
   var NAME={},ALL=[];
   Object.keys(ITEMDATA).forEach(function(g){ITEMDATA[g].forEach(function(p){NAME[p[1]]=p[0];ALL.push({g:g,n:p[0],i:p[1]});});});
-  var dl=$("items");ALL.forEach(function(x){var o=document.createElement("option");o.value=x.i;o.label=x.n;dl.appendChild(o);});
   var known={};ALL.forEach(function(x){for(var l=1;l<=30;l++)known[(hash(x.i)+l)>>>0]={item:x.i,level:l};});
   var refGroup="All";
   function renderRef(){
@@ -516,6 +529,64 @@ details p{margin:10px 0;font-size:16px}
   }
   $("fgo").addEventListener("click",finder);
   ["item","level","cname"].forEach(function(id){$(id).addEventListener("input",run);});
+
+  // Item picker: opens on click like a dropdown, and filters by name or internal ID as you type. Unlisted names can still be typed
+  (function(){
+    var inp=$("item"),list=$("itemList"),btn=$("itemBtn"),opts=[],act=-1,filtering=false;
+    function highlight(){
+      opts.forEach(function(o,i){o.el.setAttribute("aria-selected",i===act?"true":"false");});
+      if(act<0){inp.removeAttribute("aria-activedescendant");return;}
+      var el=opts[act].el;inp.setAttribute("aria-activedescendant",el.id);
+      if(el.offsetTop<list.scrollTop+30)list.scrollTop=el.offsetTop-30;
+      else if(el.offsetTop+el.offsetHeight>list.scrollTop+list.clientHeight)list.scrollTop=el.offsetTop+el.offsetHeight-list.clientHeight;
+    }
+    function show(){
+      var q=filtering?inp.value.trim().toLowerCase():"",cur=inp.value.trim();
+      list.innerHTML="";opts=[];act=-1;
+      Object.keys(ITEMDATA).forEach(function(g){
+        var xs=ALL.filter(function(x){return x.g===g&&(!q||x.n.toLowerCase().indexOf(q)>=0||x.i.toLowerCase().indexOf(q)>=0);})
+          .sort(function(a,b){return a.n.localeCompare(b.n);});
+        if(!xs.length)return;
+        var h=document.createElement("div");h.className="combo-group";h.setAttribute("role","presentation");h.textContent=g;list.appendChild(h);
+        xs.forEach(function(x){
+          var o=document.createElement("div");o.className="combo-opt";o.id="itemOpt"+opts.length;o.setAttribute("role","option");
+          var n=document.createElement("span");n.textContent=x.n;
+          var i=document.createElement("span");i.className="mono";i.textContent=x.i;
+          o.appendChild(n);o.appendChild(i);
+          o.addEventListener("mousedown",function(e){e.preventDefault();choose(x.i);});
+          if(x.i===cur)act=opts.length;
+          opts.push({el:o,x:x});list.appendChild(o);
+        });
+      });
+      if(!opts.length){var e=document.createElement("div");e.className="combo-empty";e.textContent="No matching items. An internal name that isn't listed still works.";list.appendChild(e);}
+      if(filtering&&act<0&&opts.length)act=0;
+      list.hidden=false;inp.setAttribute("aria-expanded","true");
+      list.scrollTop=act>=0?opts[act].el.offsetTop-list.clientHeight/2:0;
+      highlight();
+    }
+    function hide(){list.hidden=true;filtering=false;inp.setAttribute("aria-expanded","false");inp.removeAttribute("aria-activedescendant");}
+    function choose(id){inp.value=id;hide();run();}
+    // Accept a display name typed in full, eg "frostner"
+    function normalise(){
+      var v=inp.value.trim().toLowerCase(),m=ALL.filter(function(x){return x.n.toLowerCase()===v;})[0];
+      if(m&&inp.value!==m.i){inp.value=m.i;run();}
+    }
+    inp.addEventListener("click",function(){if(list.hidden)show();});
+    inp.addEventListener("input",function(){filtering=true;show();});
+    inp.addEventListener("blur",function(){hide();normalise();});
+    inp.addEventListener("keydown",function(e){
+      if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+        e.preventDefault();
+        if(list.hidden){show();return;}
+        if(!opts.length)return;
+        act=e.key==="ArrowDown"?Math.min(act+1,opts.length-1):Math.max(act-1,0);highlight();
+      }else if(e.key==="Enter"){
+        if(!list.hidden&&act>=0){e.preventDefault();choose(opts[act].x.i);}else normalise();
+      }else if(e.key==="Escape"&&!list.hidden){e.preventDefault();hide();}
+    });
+    btn.addEventListener("mousedown",function(e){e.preventDefault();});
+    btn.addEventListener("click",function(){if(list.hidden){filtering=false;inp.focus();show();}else hide();});
+  })();
   run();
 })();
 </script>
