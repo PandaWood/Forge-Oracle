@@ -130,7 +130,6 @@ details p{margin:10px 0;font-size:16px}
         </label>
       </div>
       <div class="wherepaths" id="wherePaths"></div>
-      <p id="whereTip"></p>
     </div>
     <input type="file" id="file" accept=".fch" hidden>
     <p id="fileStatus" class="status" hidden></p>
@@ -276,16 +275,12 @@ details p{margin:10px 0;font-size:16px}
   function recall(k){try{return localStorage.getItem(k)||"";}catch(e){return "";}}
   // Save folders for each way of running the game. Steam Cloud saves live under Steam's userdata, local saves under the game's own data folder
   var CLOUD="/userdata/<Steam ID>/892970/remote/characters",PFX="/steamapps/compatdata/892970/pfx/drive_c/users/steamuser/AppData/LocalLow/IronGate/Valheim/characters_local";
-  var LINUXTIP="In the file picker, press Ctrl+L and paste the path. Ctrl+H shows hidden folders.";
   var SETUPS={
-    win:{paths:[["Steam Cloud saves","C:\\Program Files (x86)\\Steam\\userdata\\<Steam ID>\\892970\\remote\\characters"],["Local saves","%USERPROFILE%\\AppData\\LocalLow\\IronGate\\Valheim\\characters_local"]],
-      tip:"In the file picker, paste the path into the File name box and press Enter."},
-    linux:{paths:[["Steam Cloud saves","~/.local/share/Steam"+CLOUD],["Local saves","~/.config/unity3d/IronGate/Valheim/characters_local"]],tip:LINUXTIP},
-    proton:{paths:[["Steam Cloud saves","~/.local/share/Steam"+CLOUD],["Local saves","<Steam library>"+PFX]],library:true,
-      tip:LINUXTIP+" Local saves sit in the Steam library Valheim is installed in. Steam's Manage > Browse local files opens its steamapps/common/Valheim folder."},
-    flatpak:{paths:[["Steam Cloud saves","~/.var/app/com.valvesoftware.Steam/.local/share/Steam"+CLOUD],["Local saves, native","~/.var/app/com.valvesoftware.Steam/.config/unity3d/IronGate/Valheim/characters_local"],["Local saves, Proton","~/.var/app/com.valvesoftware.Steam/.local/share/Steam"+PFX]],tip:LINUXTIP},
-    deck:{paths:[["Steam Cloud saves","/home/deck/.local/share/Steam"+CLOUD],["Local saves, native","/home/deck/.config/unity3d/IronGate/Valheim/characters_local"],["Local saves, Proton","/home/deck/.local/share/Steam"+PFX]],
-      tip:"Open this page in Desktop Mode. "+LINUXTIP}
+    win:{paths:[["Steam Cloud saves","C:\\Program Files (x86)\\Steam\\userdata\\<Steam ID>\\892970\\remote\\characters"],["Local saves","%USERPROFILE%\\AppData\\LocalLow\\IronGate\\Valheim\\characters_local"]]},
+    linux:{paths:[["Steam Cloud saves","~/.local/share/Steam"+CLOUD],["Local saves","~/.config/unity3d/IronGate/Valheim/characters_local"]]},
+    proton:{paths:[["Steam Cloud saves","~/.local/share/Steam"+CLOUD],["Local saves","<Steam library>"+PFX]],library:true},
+    flatpak:{paths:[["Steam Cloud saves","~/.var/app/com.valvesoftware.Steam/.local/share/Steam"+CLOUD],["Local saves, native","~/.var/app/com.valvesoftware.Steam/.config/unity3d/IronGate/Valheim/characters_local"],["Local saves, Proton","~/.var/app/com.valvesoftware.Steam/.local/share/Steam"+PFX]]},
+    deck:{paths:[["Steam Cloud saves","/home/deck/.local/share/Steam"+CLOUD],["Local saves, native","/home/deck/.config/unity3d/IronGate/Valheim/characters_local"],["Local saves, Proton","/home/deck/.local/share/Steam"+PFX]]}
   };
   function guessSetup(){
     var ua=navigator.userAgent,p=(navigator.userAgentData&&navigator.userAgentData.platform)||navigator.platform||"";
@@ -303,11 +298,10 @@ details p{margin:10px 0;font-size:16px}
     if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,fallback);else fallback();
   }
   function renderWhere(){
-    var s=SETUPS[$("setup").value],box=$("wherePaths"),missingId=false;box.innerHTML="";
+    var s=SETUPS[$("setup").value],box=$("wherePaths");box.innerHTML="";
     $("libraryLabel").hidden=!s.library;
     s.paths.forEach(function(p){
       var path=fillPath(p[1]),cut=path.indexOf("<Steam ID>");
-      if(cut>=0)missingId=true;
       var row=document.createElement("div");row.className="wpath";
       var b=document.createElement("b");b.textContent=p[0];
       var m=document.createElement("span");m.className="mono";m.textContent=path;
@@ -316,7 +310,6 @@ details p{margin:10px 0;font-size:16px}
       c.onclick=function(){copyText(cut>=0?path.slice(0,cut):path,c);};
       row.appendChild(b);row.appendChild(m);row.appendChild(c);box.appendChild(row);
     });
-    $("whereTip").textContent=s.tip+(missingId?" Your Steam ID is the numbered folder inside userdata, and most people only have one. Enter it above to copy the full path.":"");
   }
   (function(){
     var sel=$("setup");sel.value=recall("fo-setup");if(!SETUPS[sel.value])sel.value=guessSetup();
