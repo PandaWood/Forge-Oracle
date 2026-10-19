@@ -37,6 +37,14 @@ h2{font:500 15px var(--disp);letter-spacing:.14em;text-transform:uppercase;color
 main>*{min-width:0}
 .drop .mono{overflow-wrap:anywhere}
 .where p{margin:8px 0}.where .mono{overflow-wrap:anywhere}
+.where .row{margin-top:12px}
+.wherepaths{display:grid;margin-top:10px;border-top:1px solid var(--line)}
+.wpath{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.wpath b{grid-column:1/-1;font-weight:500;color:var(--fg)}
+.wpath .mono{min-width:0}
+.copy,.again,.reload{font:14px var(--body);border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:4px;padding:5px 12px;cursor:pointer}
+.copy:hover,.again:hover,.reload:hover{border-color:var(--accent);color:var(--accent)}
+#again{margin:10px 0 0}
 .row{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
 label{display:grid;gap:4px;font-size:15px;color:var(--muted);min-width:0}
 input,select{font:16px var(--body);color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:9px 10px;min-width:0;width:100%}
@@ -90,13 +98,27 @@ details p{margin:10px 0;font-size:16px}
       <strong>Drop your .fch file here</strong>
       <span>or click to browse. Where to find it is listed below.</span>
     </div>
+    <p id="again" hidden><button class="again" id="againBtn" type="button"></button></p>
     <div class="note where" id="where">
-      <p data-os="linux"><b>Linux</b>, Steam Cloud saves: <span class="mono">~/.local/share/Steam/userdata/&lt;Steam ID&gt;/892970/remote/characters</span><br>
-        Local saves: <span class="mono">~/.config/unity3d/IronGate/Valheim/characters_local</span><br>
-        Through Proton: <span class="mono">~/.local/share/Steam/steamapps/compatdata/892970/pfx/drive_c/users/steamuser/AppData/LocalLow/IronGate/Valheim/characters_local</span><br>
-        In the file picker, press Ctrl+L and paste the path. Ctrl+H shows hidden folders.</p>
-      <p data-os="win"><b>Windows</b>, local saves: <span class="mono">%USERPROFILE%\AppData\LocalLow\IronGate\Valheim\characters_local</span><br>
-        Steam Cloud saves: <span class="mono">C:\Program Files (x86)\Steam\userdata\&lt;Steam ID&gt;\892970\remote\characters</span></p>
+      <div class="row">
+        <label for="setup">How you play Valheim
+          <select id="setup">
+            <option value="win">Windows, Steam</option>
+            <option value="linux">Linux, native</option>
+            <option value="proton">Linux, Proton</option>
+            <option value="flatpak">Linux, Flatpak Steam</option>
+            <option value="deck">Steam Deck</option>
+          </select>
+        </label>
+        <label for="steamid">Steam ID folder (optional)
+          <input id="steamid" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="the number in userdata">
+        </label>
+        <label for="library" id="libraryLabel" hidden>Steam library with Valheim
+          <input id="library" autocomplete="off" spellcheck="false" placeholder="~/.local/share/Steam">
+        </label>
+      </div>
+      <div class="wherepaths" id="wherePaths"></div>
+      <p id="whereTip"></p>
     </div>
     <input type="file" id="file" accept=".fch" hidden>
     <p id="fileStatus" class="status" hidden></p>
@@ -234,8 +256,60 @@ details p{margin:10px 0;font-size:16px}
   }
   var $=function(id){return document.getElementById(id)};
   var saved=null;
-  // List this OS's save paths first
-  if(!/Linux/.test(navigator.userAgent)||/Android/.test(navigator.userAgent)){var wh=$("where");wh.insertBefore(wh.querySelector('[data-os="win"]'),wh.firstChild);}
+  function store(k,v){try{if(v)localStorage.setItem(k,v);else localStorage.removeItem(k);}catch(e){}}
+  function recall(k){try{return localStorage.getItem(k)||"";}catch(e){return "";}}
+  // Save folders for each way of running the game. Steam Cloud saves live under Steam's userdata, local saves under the game's own data folder
+  var CLOUD="/userdata/<Steam ID>/892970/remote/characters",PFX="/steamapps/compatdata/892970/pfx/drive_c/users/steamuser/AppData/LocalLow/IronGate/Valheim/characters_local";
+  var LINUXTIP="In the file picker, press Ctrl+L and paste the path. Ctrl+H shows hidden folders.";
+  var SETUPS={
+    win:{paths:[["Steam Cloud saves","C:\\Program Files (x86)\\Steam\\userdata\\<Steam ID>\\892970\\remote\\characters"],["Local saves","%USERPROFILE%\\AppData\\LocalLow\\IronGate\\Valheim\\characters_local"]],
+      tip:"In the file picker, paste the path into the File name box and press Enter."},
+    linux:{paths:[["Steam Cloud saves","~/.local/share/Steam"+CLOUD],["Local saves","~/.config/unity3d/IronGate/Valheim/characters_local"]],tip:LINUXTIP},
+    proton:{paths:[["Steam Cloud saves","~/.local/share/Steam"+CLOUD],["Local saves","<Steam library>"+PFX]],library:true,
+      tip:LINUXTIP+" Local saves sit in the Steam library Valheim is installed in. Steam's Manage > Browse local files opens its steamapps/common/Valheim folder."},
+    flatpak:{paths:[["Steam Cloud saves","~/.var/app/com.valvesoftware.Steam/.local/share/Steam"+CLOUD],["Local saves, native","~/.var/app/com.valvesoftware.Steam/.config/unity3d/IronGate/Valheim/characters_local"],["Local saves, Proton","~/.var/app/com.valvesoftware.Steam/.local/share/Steam"+PFX]],tip:LINUXTIP},
+    deck:{paths:[["Steam Cloud saves","/home/deck/.local/share/Steam"+CLOUD],["Local saves, native","/home/deck/.config/unity3d/IronGate/Valheim/characters_local"],["Local saves, Proton","/home/deck/.local/share/Steam"+PFX]],
+      tip:"Open this page in Desktop Mode. "+LINUXTIP}
+  };
+  function guessSetup(){
+    var ua=navigator.userAgent,p=(navigator.userAgentData&&navigator.userAgentData.platform)||navigator.platform||"";
+    if(!/Linux/i.test(p+" "+ua)||/Android/i.test(ua))return "win";
+    return screen.width===1280&&screen.height===800?"deck":"linux";
+  }
+  function fillPath(p){
+    var id=$("steamid").value.replace(/\D/g,""),lib=$("library").value.trim().replace(/\/+$/,"")||"~/.local/share/Steam";
+    if(id)p=p.replace("<Steam ID>",id);
+    return p.replace("<Steam library>",lib);
+  }
+  function copyText(t,btn){
+    function done(){btn.textContent="Copied";setTimeout(function(){btn.textContent="Copy";},1500);}
+    function fallback(){var ta=document.createElement("textarea");ta.value=t;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");done();}catch(e){}document.body.removeChild(ta);}
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,fallback);else fallback();
+  }
+  function renderWhere(){
+    var s=SETUPS[$("setup").value],box=$("wherePaths"),missingId=false;box.innerHTML="";
+    $("libraryLabel").hidden=!s.library;
+    s.paths.forEach(function(p){
+      var path=fillPath(p[1]),cut=path.indexOf("<Steam ID>");
+      if(cut>=0)missingId=true;
+      var row=document.createElement("div");row.className="wpath";
+      var b=document.createElement("b");b.textContent=p[0];
+      var m=document.createElement("span");m.className="mono";m.textContent=path;
+      var c=document.createElement("button");c.type="button";c.className="copy";c.textContent="Copy";
+      // Without a Steam ID, copy the part that exists so the picker can open it
+      c.onclick=function(){copyText(cut>=0?path.slice(0,cut):path,c);};
+      row.appendChild(b);row.appendChild(m);row.appendChild(c);box.appendChild(row);
+    });
+    $("whereTip").textContent=s.tip+(missingId?" Your Steam ID is the numbered folder inside userdata, and most people only have one. Enter it above to copy the full path.":"");
+  }
+  (function(){
+    var sel=$("setup");sel.value=recall("fo-setup");if(!SETUPS[sel.value])sel.value=guessSetup();
+    $("steamid").value=recall("fo-steamid");$("library").value=recall("fo-library");
+    sel.addEventListener("change",function(){store("fo-setup",sel.value);renderWhere();});
+    $("steamid").addEventListener("input",function(){store("fo-steamid",this.value.replace(/\D/g,""));renderWhere();});
+    $("library").addEventListener("input",function(){store("fo-library",this.value.trim());renderWhere();});
+    renderWhere();
+  })();
   var ITEMDATA={"Weapons":[["Abyssal Razor","KnifeChitin"],["Ancient Bark Spear","SpearElderbark"],["Arbalest","CrossbowArbalest"],["Ash Fang","BowAshlands"],["Battleaxe","Battleaxe"],["Berserkir Axes","AxeBerzerkr"],["Black Metal Atgeir","AtgeirBlackmetal"],["Black Metal Axe","AxeBlackMetal"],["Black Metal Battleaxe","BattleaxeBlackmetal"],["Black Metal Knife","KnifeBlackMetal"],["Black Metal Pickaxe","PickaxeBlackMetal"],["Black Metal Sword","SwordBlackmetal"],["Bleeding Berserkir Axes","AxeBerzerkrBlood"],["Blood Fang","BowAshlandsBlood"],["Bloodgeon","MaceEldnerBlood"],["Bronze Atgeir","AtgeirBronze"],["Bronze Axe","AxeBronze"],["Bronze Mace","MaceBronze"],["Bronze Pickaxe","PickaxeBronze"],["Bronze Spear","SpearBronze"],["Bronze Sword","SwordBronze"],["Brutal Slayer","THSwordSlayerBlood"],["Carapace Spear","SpearCarapace"],["Club","Club"],["Copper Knife","KnifeCopper"],["Crude Bow","Bow"],["Crystal Battleaxe","BattleaxeCrystal"],["Dead Raiser","StaffSkeleton"],["Demolisher","SledgeDemolisher"],["Draugr Fang","BowDraugrFang"],["Dundr","StaffLightning"],["Dyrnwyn","SwordDyrnwyn"],["Early Axes","AxeEarly"],["Echo Spike","StaffOrbofAhri"],["Fang Spear","SpearWolfFang"],["Finewood Bow","BowFineWood"],["Flametal Mace","MaceEldner"],["Flesh Rippers","FistFenrirClaw"],["Flint Axe","AxeFlint"],["Flint Knife","KnifeFlint"],["Flint Spear","SpearFlint"],["Frostfire Atgeir","AtgeirGold_FrostFire"],["Frostfire Axe","AxeGold_FrostFire"],["Frostfire Bow","BowGold_FrostFire"],["Frostfire Crossbow","CrossbowGold_FrostFire"],["Frostfire Dagger","KnifeGold_FrostFire"],["Frostfire Greataxe","BattleaxeGold_FrostFire"],["Frostfire Greatsword","THSwordGold_FrostFire"],["Frostfire Knucklechains","FistGold_FrostFire"],["Frostfire Mace","MaceGold_FrostFire"],["Frostfire Sledge","SledgeGold_FrostFire"],["Frostfire Spear","SpearGold_FrostFire"],["Frostfire Sword","SwordGold_FrostFire"],["Frostner","MaceSilver"],["Himminafl","AtgeirHimminAfl"],["Huntsman Bow","BowHuntsman"],["Iron Atgeir","AtgeirIron"],["Iron Axe","AxeIron"],["Iron Mace","MaceIron"],["Iron Pickaxe","PickaxeIron"],["Iron Sledge","SledgeIron"],["Iron Sword","SwordIron"],["Jotun Bane","AxeJotunBane"],["Klossen","MaceEldnerNature"],["Krom","THSwordKrom"],["Lightning Strike","StaffThunderBlood"],["Mistwalker","SwordMistwalker"],["Nidhögg","SwordNiedhogg"],["Nidhögg the Bleeding","SwordNiedhoggBlood"],["Nidhögg the Primal","SwordNiedhoggNature"],["Nidhögg the Thundering","SwordNiedhoggLightning"],["Nord Atgeir","AtgeirGold"],["Nord Axe","AxeGold"],["Nord Bow","BowGold"],["Nord Crossbow","CrossbowGold"],["Nord Dagger","KnifeGold"],["Nord Greataxe","BattleaxeGold"],["Nord Greatsword","THSwordGold"],["Nord Knucklechains","FistGold"],["Nord Mace","MaceGold"],["Nord Sledge","SledgeGold"],["Nord Spear","SpearGold"],["Nord Sword","SwordGold"],["Northern Vengeance","StaffFrostOrbs"],["Paws of the Bear","FistBjornClaw"],["Porcupine","MaceNeedle"],["Primal Berserkir Axes","AxeBerzerkrNature"],["Primal Slayer","THSwordSlayerNature"],["Ripper","CrossbowRipper"],["Root Fang","BowAshlandsRoot"],["Root Ripper","CrossbowRipperNature"],["Scourging Slayer","THSwordSlayerLightning"],["Scythe","Scythe"],["Silver Knife","KnifeSilver"],["Silver Sword","SwordSilver"],["Skoll and Hati","KnifeSkollAndHati"],["Skull Splittur","BattleaxeSkullSplittur"],["Slayer","THSwordSlayer"],["Snow Shovel","Shovel"],["Spinesnap","BowSpineSnap"],["Spirit Caller","StaffSpiritCaller"],["Splitnir","SpearSplitner"],["Splitnir the Bleeding","SpearSplitner_Blood"],["Splitnir the Primal","SpearSplitner_Nature"],["Splitnir the Storming","SpearSplitner_Lightning"],["Staff of Embers","StaffFireball"],["Staff of Fracturing","StaffClusterbomb"],["Staff of Frost","StaffIceShards"],["Staff of Protection","StaffShield"],["Staff of the Wild","StaffGreenRoots"],["Stagbreaker","SledgeStagbreaker"],["Stone Axe","AxeStone"],["Storm Fang","BowAshlandsStorm"],["Storm Ripper","CrossbowRipperLightning"],["Storm Star","MaceEldnerLightning"],["Thunderblood Atgeir","AtgeirGold_BloodLightning"],["Thunderblood Axe","AxeGold_BloodLightning"],["Thunderblood Bow","BowGold_BloodLightning"],["Thunderblood Crossbow","CrossbowGold_BloodLightning"],["Thunderblood Dagger","KnifeGold_BloodLightning"],["Thunderblood Greataxe","BattleaxeGold_BloodLightning"],["Thunderblood Greatsword","THSwordGold_BloodLightning"],["Thunderblood Knucklechains","FistGold_BloodLightning"],["Thunderblood Mace","MaceGold_BloodLightning"],["Thunderblood Sledge","SledgeGold_BloodLightning"],["Thunderblood Spear","SpearGold_BloodLightning"],["Thunderblood Sword","SwordGold_BloodLightning"],["Thundering Berserkir Axes","AxeBerzerkrLightning"],["Trollstav","StaffRedTroll"],["Vilebone Maulclaws","FistBjornUndeadClaw"],["Voidcaller","KnifeVoid"],["Wooden Atgeir","AtgeirWood"],["Wooden Axe","AxeWood"],["Wooden Battleaxe","BattleaxeWood"],["Wooden Greatsword","THSwordWood"],["Wooden Knife","KnifeWood"],["Wooden Mace","MaceWood"],["Wooden Sledge","SledgeWood"],["Wooden Spear","SpearWood"],["Wooden Sword","SwordWood"],["Wound Ripper","CrossbowRipperBlood"]],"Armour":[["Ashen Cape","CapeAsh"],["Asksvin Cloak","CapeAsksvin"],["Blue Dress with Beads","ArmorDress6"],["Blue Dress with Shawl","ArmorDress5"],["Blue Tied Headscarf","HelmetHat1"],["Blue Tunic with Beads","ArmorTunic3"],["Blue Tunic with Cape","ArmorTunic2"],["Breastplate of Ask","ArmorAshlandsMediumChest"],["Breastplate of the Protector","ArmorDeepNorthHeavyChest"],["Bronze Helmet","HelmetBronze"],["Bronze Plate Leggings","ArmorBronzeLegs"],["Bronze Plate Tunic","ArmorBronzeChest"],["Brown Dress with Beads","ArmorDress3"],["Brown Dress with Shawl","ArmorDress2"],["Brown Fur Cap","HelmetHat3"],["Cape of Oden","CapeOdin"],["Cape of the Caller","CapeDeepNorthMage"],["Carapace Breastplate","ArmorCarapaceChest"],["Carapace Greaves","ArmorCarapaceLegs"],["Carapace Helmet","HelmetCarapace"],["Celebratory Cap","HelmetCelebration"],["Chestpiece of the Vanguard","ArmorDeepNorthMediumChest"],["Deer Hide Cape","CapeDeerHide"],["Drake Helmet","HelmetDrake"],["Eitr-weave Hood","HelmetMage"],["Eitr-weave Robe","ArmorMageChest"],["Eitr-weave Trousers","ArmorMageLegs"],["Extravagant Green Cap","HelmetHat4"],["Extravagant Orange Cap","HelmetHat9"],["Feather Cape","CapeFeather"],["Fenris Coat","ArmorFenringChest"],["Fenris Hood","HelmetFenring"],["Fenris Leggings","ArmorFenringLegs"],["Fishing Hat","HelmetFishingHat"],["Flametal Breastplate","ArmorFlametalChest"],["Flametal Greaves","ArmorFlametalLegs"],["Flametal Helmet","HelmetFlametal"],["Green Twisted Headscarf","HelmetHat2"],["Grey Fur Cap","HelmetHat8"],["Harvest Dress","ArmorHarvester2"],["Harvest Tunic","ArmorHarvester1"],["Headdress of the Bear","HelmetBerserkerHood"],["Headdress of the Caller","HelmetDNMage"],["Hood of Ask","HelmetAshlandsMediumHood"],["Hood of Embla","HelmetMage_Ashlands"],["Hood of Oden","HelmetOdin"],["Hood of the Vanguard","HelmetDNMediumHood"],["Iron Greaves","ArmorIronLegs"],["Iron Helmet","HelmetIron"],["Iron Scale Mail","ArmorIronChest"],["Leather Helmet","HelmetLeather"],["Leather Trousers","ArmorLeatherLegs"],["Leather Tunic","ArmorLeatherChest"],["Linen Cape","CapeLinen"],["Loincloth of the Bear","ArmorBerserkerLegs"],["Lox Cape","CapeLox"],["Lox Fur Hood","HelmetLox"],["Lox Fur Jacket","ArmorLoxChest"],["Lox Fur Trousers","ArmorLoxLegs"],["Moose Hide Cape","CapeDeepNorth"],["Padded Cuirass","ArmorPaddedCuirass"],["Padded Greaves","ArmorPaddedGreaves"],["Padded Helmet","HelmetPadded"],["Patterns of the Bear","ArmorBerserkerChest"],["Plain Blue Dress","ArmorDress4"],["Plain Blue Tunic","ArmorTunic1"],["Plain Brown Dress","ArmorDress1"],["Plain Red Tunic","ArmorTunic4"],["Plain Yellow Dress","ArmorDress7"],["Plain Yellow Tunic","ArmorTunic7"],["Pointy Hat","HelmetPointyHat"],["Rag Trousers","ArmorRagsLegs"],["Rag Tunic","ArmorRagsChest"],["Red Tunic with Beads","ArmorTunic6"],["Red Tunic with Cape","ArmorTunic5"],["Red Twisted Headscarf","HelmetHat7"],["Robes of Embla","ArmorMageChest_Ashlands"],["Robes of the Caller","ArmorDeepNorthMageChest"],["Root Harnesk","ArmorRootChest"],["Root Leggings","ArmorRootLegs"],["Root Mask","HelmetRoot"],["Simple Purple Cap","HelmetHat10"],["Simple Red Cap","HelmetHat5"],["Simple Undyed Dress","ArmorDress10"],["Simple Undyed Tunic","ArmorTunic10"],["Straw Hat","HelmetStrawHat"],["Troll Hide Cape","CapeTrollHide"],["Troll Leather Hood","HelmetTrollLeather"],["Troll Leather Trousers","ArmorTrollLeatherLegs"],["Troll Leather Tunic","ArmorTrollLeatherChest"],["Trousers of Ask","ArmorAshlandsMediumlegs"],["Trousers of Embla","ArmorMageLegs_Ashlands"],["Trousers of the Caller","ArmorDeepNorthMagelegs"],["Trousers of the Protector","ArmorDeepNorthHeavylegs"],["Trousers of the Vanguard","ArmorDeepNorthMediumlegs"],["Vilebone Cage","ArmorBerserkerUndeadChest"],["Vilebone Drapes","ArmorBerserkerUndeadLegs"],["Vilebone Visage","HelmetBerserkerUndead"],["Wolf Fur Cape","CapeWolf"],["Wolf Hide Chestpiece","ArmorWolfChest"],["Wolf Hide Trousers","ArmorWolfLegs"],["Yellow Dress with Beads","ArmorDress9"],["Yellow Dress with Shawl","ArmorDress8"],["Yellow Tied Headscarf","HelmetHat6"],["Yellow Tunic with Beads","ArmorTunic9"],["Yellow Tunic with Cape","ArmorTunic8"]],"Shields":[["Banded Shield","ShieldBanded"],["Black Metal Shield","ShieldBlackmetal"],["Black Metal Tower Shield","ShieldBlackmetalTower"],["Bone Tower Shield","ShieldBoneTower"],["Bronze Buckler","ShieldBronzeBuckler"],["Carapace Buckler","ShieldCarapaceBuckler"],["Carapace Shield","ShieldCarapace"],["Flametal Shield","ShieldFlametal"],["Flametal Tower Shield","ShieldFlametalTower"],["Iron Buckler","ShieldIronBuckler"],["Iron Shield","ShieldIronSquare"],["Iron Tower Shield","ShieldIronTower"],["Nord Buckler","ShieldGoldBuckler"],["Nord Greatshield","ShieldGoldTower"],["Nord Shield","ShieldGold"],["Serpent Scale Shield","ShieldSerpentscale"],["Shield of Roots","ShieldRoots"],["Silver Shield","ShieldSilver"],["Wood Shield","ShieldWood"],["Wood Tower Shield","ShieldWoodTower"]],"Tools":[["Cultivator","Cultivator"],["Hammer","Hammer"],["Hoe","Hoe"],["Serving Tray","Feaster"]]};
   var NAME={},ALL=[];
   Object.keys(ITEMDATA).forEach(function(g){ITEMDATA[g].forEach(function(p){NAME[p[1]]=p[0];ALL.push({g:g,n:p[0],i:p[1]});});});
@@ -277,6 +351,12 @@ details p{margin:10px 0;font-size:16px}
       var d=$("drop");d.classList.add("loaded");
       d.innerHTML="<strong></strong><span class='mono'></span>";
       d.firstChild.textContent=f.name;d.lastChild.textContent="save version "+saved.version+" · click to replace";
+      $("again").hidden=true;
+      if(handle&&handle.name===f.name){
+        var rb=document.createElement("button");rb.type="button";rb.className="reload";rb.textContent="Reload";rb.title="Read this file again after the game saves";
+        rb.onclick=function(e){e.stopPropagation();readHandle(handle);};
+        d.appendChild(rb);
+      }
       if(saved.old){status("This save is from before the Forge seeds were stored (version "+saved.version+"). Predictions will start from the character's initial seeds.",true);}
       else if(!saved.found){status("Could not find the Forge seed table in this file. The format may have changed in a newer patch.",true);}
       else{status(saved.count+" Forge seed"+(saved.count===1?"":"s")+" found in the save.",false);}
@@ -352,13 +432,51 @@ details p{margin:10px 0;font-size:16px}
     $("summary").textContent=sum;
   }
 
-  var drop=$("drop"),fi=$("file");
-  drop.addEventListener("click",function(){fi.click();});
-  drop.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();fi.click();}});
-  fi.addEventListener("change",function(){loadFile(fi.files[0]);});
+  // Chrome, Edge and Brave can keep a handle to the save: the picker then reopens in its folder, and the same file can be read again after the game saves
+  var drop=$("drop"),fi=$("file"),handle=null,FSA=typeof window.showOpenFilePicker==="function";
+  function idb(mode,fn){
+    return new Promise(function(res,rej){
+      var r=indexedDB.open("forge-oracle",1);
+      r.onupgradeneeded=function(){r.result.createObjectStore("kv");};
+      r.onerror=function(){rej(r.error);};
+      r.onsuccess=function(){var tx=r.result.transaction("kv",mode),q=fn(tx.objectStore("kv"));tx.oncomplete=function(){res(q.result);};tx.onerror=function(){rej(tx.error);};};
+    });
+  }
+  function keepHandle(h){handle=h;try{idb("readwrite",function(s){return s.put(h,"save");}).catch(function(){});}catch(e){}}
+  function readHandle(h){
+    h.queryPermission({mode:"read"})
+      .then(function(p){return p==="granted"?p:h.requestPermission({mode:"read"});})
+      .then(function(p){if(p!=="granted")throw new Error();return h.getFile();})
+      .then(function(f){handle=h;loadFile(f);},function(){status("Could not read "+h.name+" again. Choose it with the picker instead.",true);});
+  }
+  function pick(){
+    if(!FSA){fi.click();return;}
+    var opts={id:"valheim-characters",types:[{description:"Valheim character",accept:{"application/octet-stream":[".fch"]}}]};
+    if(handle)opts.startIn=handle;
+    window.showOpenFilePicker(opts)
+      .then(function(hs){keepHandle(hs[0]);return hs[0].getFile();})
+      .then(loadFile,function(e){if(!e||e.name!=="AbortError")fi.click();});
+  }
+  drop.addEventListener("click",pick);
+  drop.addEventListener("keydown",function(e){if(e.target!==drop)return;if(e.key==="Enter"||e.key===" "){e.preventDefault();pick();}});
+  fi.addEventListener("change",function(){handle=null;loadFile(fi.files[0]);});
   ["dragenter","dragover"].forEach(function(t){drop.addEventListener(t,function(e){e.preventDefault();drop.classList.add("over");});});
   ["dragleave","drop"].forEach(function(t){drop.addEventListener(t,function(e){e.preventDefault();drop.classList.remove("over");});});
-  drop.addEventListener("drop",function(e){loadFile(e.dataTransfer.files[0]);});
+  drop.addEventListener("drop",function(e){
+    var f=e.dataTransfer.files[0],it=e.dataTransfer.items&&e.dataTransfer.items[0];
+    handle=null;
+    if(it&&it.getAsFileSystemHandle){
+      it.getAsFileSystemHandle().then(function(h){if(h&&h.kind==="file")keepHandle(h);}).catch(function(){}).then(function(){loadFile(f);});
+    }else loadFile(f);
+  });
+  // Offer the last save picked on this browser
+  if(FSA&&window.indexedDB){
+    try{idb("readonly",function(s){return s.get("save");}).then(function(h){
+      if(!h||handle)return;
+      handle=h;$("againBtn").textContent="Load "+h.name+" again";$("again").hidden=false;
+    }).catch(function(){});}catch(e){}
+  }
+  $("againBtn").addEventListener("click",function(){if(handle)readHandle(handle);});
 
   var fbusy=false;
   function finder(){
