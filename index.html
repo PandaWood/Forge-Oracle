@@ -48,7 +48,9 @@ main>*{min-width:0}
 .row{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
 label{display:grid;gap:4px;font-size:15px;color:var(--muted);min-width:0}
 input,select{font:16px var(--body);color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:9px 10px;min-width:0;width:100%}
-.field{display:grid;gap:4px;font-size:15px;color:var(--muted);min-width:0;align-content:start}
+.field{display:grid;gap:4px;font-size:15px;color:var(--muted);min-width:0}
+/* Labels differ in length, so pin each field to the bottom of its column and the boxes line up */
+.row>label,.row>.field{align-content:end}
 .combo{position:relative}
 .combo input{padding-right:38px}
 .combo-btn{position:absolute;right:1px;top:1px;bottom:1px;width:36px;display:grid;place-items:center;border:0;border-radius:0 4px 4px 0;background:none;color:var(--muted);cursor:pointer}
